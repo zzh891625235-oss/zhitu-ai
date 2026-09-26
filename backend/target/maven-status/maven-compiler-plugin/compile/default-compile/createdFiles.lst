@@ -33,6 +33,7 @@ com\zhitu\config\JwtAuthFilter.class
 com\zhitu\controller\ResumeController.class
 com\zhitu\service\impl\CompetitionRecommendServiceImpl$1.class
 com\zhitu\controller\StudyPlanController.class
+com\zhitu\controller\AiChatController.class
 com\zhitu\service\StudyPlanService.class
 com\zhitu\ZhituApplication.class
 com\zhitu\controller\ProfileController$1.class
@@ -56,8 +57,10 @@ com\zhitu\entity\StudentProfile.class
 com\zhitu\controller\AuthController.class
 com\zhitu\controller\CompetitionController.class
 com\zhitu\service\ResumeService.class
+com\zhitu\mapper\AiChatMapper.class
 com\zhitu\entity\GrowthRecord.class
 com\zhitu\controller\GrowthRecordController.class
+com\zhitu\entity\AiChat.class
 com\zhitu\service\impl\ResumeServiceImpl.class
 com\zhitu\service\impl\StudyPlanServiceImpl$1.class
 com\zhitu\controller\CourseController.class
