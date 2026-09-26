@@ -4,7 +4,7 @@
       <div class="init-header">
         <span class="init-badge">Z</span>
         <h2>AI成长档案初始化</h2>
-        <p>帮助AI更好地了解你，为你生成专属成长规划</p>
+        <p>帮助AI更好地了解你，生成专属成长规划</p>
       </div>
 
       <el-steps :active="activeStep" finish-status="success" align-center style="margin-bottom:40px">
@@ -26,18 +26,18 @@
         </el-form-item>
         <el-form-item label="年级" prop="grade">
           <el-select v-model="form.grade" placeholder="请选择年级" style="width:100%">
-            <el-option label="大一" value="FRESHMAN" />
-            <el-option label="大二" value="SOPHOMORE" />
-            <el-option label="大三" value="JUNIOR" />
-            <el-option label="大四" value="SENIOR" />
+            <el-option label="大一" value="大一" />
+            <el-option label="大二" value="大二" />
+            <el-option label="大三" value="大三" />
+            <el-option label="大四" value="大四" />
           </el-select>
         </el-form-item>
         <el-form-item label="当前成绩">
           <el-select v-model="form.gpa" placeholder="请选择" style="width:100%">
-            <el-option label="优秀 (前20%)" value="EXCELLENT" />
-            <el-option label="良好 (前50%)" value="GOOD" />
-            <el-option label="中等" value="AVERAGE" />
-            <el-option label="待提升" value="NEED_IMPROVE" />
+            <el-option label="优秀 (前20%)" value="优秀" />
+            <el-option label="良好 (前50%)" value="良好" />
+            <el-option label="中等" value="中等" />
+            <el-option label="待提升" value="待提升" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -83,7 +83,7 @@
         <el-button v-if="activeStep > 0" @click="activeStep--">上一步</el-button>
         <el-button v-if="activeStep < 3" type="primary" @click="nextStep">下一步</el-button>
         <el-button v-if="activeStep === 3" type="primary" @click="handleSubmit" :loading="submitting">
-          完成初始化，AI生成画像
+          {{ submitting ? 'AI正在分析你的数据...' : '完成初始化，AI生成画像' }}
         </el-button>
       </div>
     </div>
@@ -91,21 +91,16 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { getMajorsApi } from '../api/major'
+import { saveProfileApi, generatePortraitApi } from '../api/profile'
 
 const router = useRouter()
 const activeStep = ref(0)
 const submitting = ref(false)
-
-const majors = [
-  { id: 1, name: '计算机科学与技术' },
-  { id: 2, name: '软件工程' },
-  { id: 3, name: '人工智能' },
-  { id: 4, name: '大数据' },
-  { id: 5, name: '电子信息工程' },
-]
+const majors = ref([])
 
 const skillItems = [
   { key: 'programmingLevel', label: '编程基础' },
@@ -126,12 +121,12 @@ const interestOptions = [
 ]
 
 const goals = [
-  { value: 'JOB', label: '就业', icon: '' },
-  { value: 'POSTGRADUATE', label: '考研', icon: '' },
-  { value: 'RECOMMENDED', label: '保研', icon: '⭐' },
-  { value: 'CIVIL_SERVICE', label: '考公', icon: '🏛' },
-  { value: 'STARTUP', label: '创业', icon: '🚀' },
-  { value: 'UNDECIDED', label: '暂未确定', icon: '🤔' },
+  { value: '就业', label: '就业', icon: '💼' },
+  { value: '考研', label: '考研', icon: '📚' },
+  { value: '保研', label: '保研', icon: '⭐' },
+  { value: '考公', label: '考公', icon: '🏛' },
+  { value: '创业', label: '创业', icon: '🚀' },
+  { value: '暂未确定', label: '暂未确定', icon: '🤔' },
 ]
 
 const form = reactive({
@@ -149,6 +144,22 @@ const rules1 = {
   grade: [{ required: true, message: '请选择年级' }]
 }
 
+onMounted(async () => {
+  try {
+    const res = await getMajorsApi()
+    majors.value = res.data
+  } catch (e) {
+    // 降级使用默认数据
+    majors.value = [
+      { id: 1, name: '计算机科学与技术' },
+      { id: 2, name: '软件工程' },
+      { id: 3, name: '人工智能' },
+      { id: 4, name: '大数据' },
+      { id: 5, name: '电子信息工程' },
+    ]
+  }
+})
+
 function nextStep() {
   if (activeStep.value === 0) {
     if (!form.school || !form.majorId || !form.grade) {
@@ -165,12 +176,36 @@ async function handleSubmit() {
     return
   }
   submitting.value = true
-  // TODO: 提交档案数据到后端，调用AI生成画像
-  setTimeout(() => {
-    submitting.value = false
+  try {
+    // 1. 保存档案
+    await saveProfileApi({
+      school: form.school,
+      majorId: form.majorId,
+      grade: form.grade,
+      gpa: form.gpa,
+      programmingLevel: form.programmingLevel,
+      javaLevel: form.javaLevel,
+      pythonLevel: form.pythonLevel,
+      cppLevel: form.cppLevel,
+      dsLevel: form.dsLevel,
+      dbLevel: form.dbLevel,
+      webLevel: form.webLevel,
+      aiLevel: form.aiLevel,
+      englishLevel: form.englishLevel,
+      interests: JSON.stringify(form.interests),
+      careerGoal: form.careerGoal
+    })
+    ElMessage.success('档案保存成功')
+    // 2. AI生成画像
+    await generatePortraitApi()
     ElMessage.success('AI画像生成完成！')
+    // 3. 跳转首页
     router.push('/')
-  }, 2000)
+  } catch (e) {
+    ElMessage.error('保存失败，请重试')
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
@@ -183,7 +218,7 @@ async function handleSubmit() {
 .init-container {
   width: 700px; padding: 48px 40px;
   background: #fff; border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
 }
 .init-header { text-align: center; margin-bottom: 36px; }
 .init-badge {

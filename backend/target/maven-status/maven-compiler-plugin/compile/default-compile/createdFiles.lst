@@ -2,6 +2,7 @@ com\zhitu\mapper\CompetitionMapper.class
 com\zhitu\ZhituApplication.class
 com\zhitu\mapper\UserMapper.class
 com\zhitu\service\impl\UserServiceImpl.class
+com\zhitu\controller\ProfileController$1.class
 com\zhitu\ai\AIService.class
 com\zhitu\dto\LoginRequest.class
 com\zhitu\controller\HealthController.class
@@ -9,6 +10,7 @@ com\zhitu\entity\Major.class
 com\zhitu\entity\AiPlan.class
 com\zhitu\entity\Course.class
 com\zhitu\mapper\CourseMapper.class
+com\zhitu\service\impl\StudentProfileServiceImpl.class
 com\zhitu\controller\UserController.class
 com\zhitu\dto\RegisterRequest.class
 com\zhitu\exception\GlobalExceptionHandler.class
@@ -17,14 +19,18 @@ com\zhitu\dto\Result.class
 com\zhitu\exception\BusinessException.class
 com\zhitu\service\UserService.class
 com\zhitu\mapper\MajorMapper.class
+com\zhitu\service\StudentProfileService.class
 com\zhitu\utils\PasswordUtils.class
+com\zhitu\controller\MajorController.class
 com\zhitu\utils\JwtUtils.class
 com\zhitu\entity\Competition.class
 com\zhitu\ai\DeepSeekProvider.class
 com\zhitu\dto\LoginResponse.class
 com\zhitu\entity\StudentProfile.class
+com\zhitu\controller\ProfileController.class
 com\zhitu\controller\AuthController.class
 com\zhitu\config\CorsConfig.class
 com\zhitu\mapper\StudentProfileMapper.class
+com\zhitu\service\impl\StudentProfileServiceImpl$1.class
 com\zhitu\config\JwtAuthFilter.class
 com\zhitu\config\SecurityConfig.class

@@ -29,6 +29,9 @@ public class SecurityConfig {
             .authorizeRequests()
                 .antMatchers("/api/auth/**").permitAll()
                 .antMatchers("/api/health").permitAll()
+                .antMatchers("/api/majors").permitAll()
+                .antMatchers("/api/courses/**").permitAll()
+                .antMatchers("/api/competitions/**").permitAll()
                 .anyRequest().authenticated()
             .and()
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
