@@ -1,4 +1,5 @@
 com\zhitu\mapper\CompetitionMapper.class
+com\zhitu\mapper\StudyPlanMapper.class
 com\zhitu\mapper\UserMapper.class
 com\zhitu\service\impl\UserServiceImpl.class
 com\zhitu\service\FourYearPlanService.class
@@ -23,9 +24,12 @@ com\zhitu\config\CorsConfig.class
 com\zhitu\mapper\StudentProfileMapper.class
 com\zhitu\service\impl\StudentProfileServiceImpl$1.class
 com\zhitu\controller\PlanController.class
+com\zhitu\entity\StudyPlan.class
 com\zhitu\service\impl\FourYearPlanServiceImpl.class
 com\zhitu\config\JwtAuthFilter.class
 com\zhitu\service\impl\CompetitionRecommendServiceImpl$1.class
+com\zhitu\controller\StudyPlanController.class
+com\zhitu\service\StudyPlanService.class
 com\zhitu\ZhituApplication.class
 com\zhitu\controller\ProfileController$1.class
 com\zhitu\ai\AIService.class
@@ -45,6 +49,8 @@ com\zhitu\dto\LoginResponse.class
 com\zhitu\entity\StudentProfile.class
 com\zhitu\controller\AuthController.class
 com\zhitu\controller\CompetitionController.class
+com\zhitu\service\impl\StudyPlanServiceImpl$1.class
 com\zhitu\controller\CourseController.class
 com\zhitu\service\impl\FourYearPlanServiceImpl$1.class
 com\zhitu\config\SecurityConfig.class
+com\zhitu\service\impl\StudyPlanServiceImpl.class
