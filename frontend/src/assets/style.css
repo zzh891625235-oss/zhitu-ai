@@ -1,20 +1,103 @@
-/* 智途AI - 全局样式 */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ============================================================
+   智途AI - 全局设计系统
+   ============================================================ */
+
+:root {
+  --primary: #6C5CE7;
+  --primary-light: #A29BFE;
+  --primary-dark: #5A4BD1;
+  --accent: #00CEC9;
+  --accent-light: #55EFC4;
+  --danger: #FF6B6B;
+  --warning: #FECA57;
+  --success: #00D2A0;
+  --info: #54A0FF;
+
+  --bg: #F5F6FA;
+  --bg-card: #FFFFFF;
+  --text: #2D3436;
+  --text-secondary: #636E72;
+  --text-muted: #B2BEC3;
+  --border: #E8ECF1;
+
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,.04);
+  --shadow: 0 4px 20px rgba(0,0,0,.06);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,.1);
+  --shadow-xl: 0 20px 60px rgba(108,92,231,.15);
+
+  --transition: 0.25s cubic-bezier(.4,0,.2,1);
 }
 
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: #f0f2f5;
-  color: #333;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
 }
 
 a { text-decoration: none; color: inherit; }
 
-/* 自定义滚动条 */
-::-webkit-scrollbar { width: 6px; }
+/* 滚动条 */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c0c4cc; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: #D0D5DD; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #B0B5BD; }
+
+/* Element Plus 全局覆写 */
+.el-card {
+  border-radius: var(--radius) !important;
+  border: 1px solid var(--border) !important;
+  transition: all var(--transition) !important;
+}
+.el-card:hover { box-shadow: var(--shadow-lg) !important; }
+
+.el-button--primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark)) !important;
+  border: none !important;
+  border-radius: var(--radius-sm) !important;
+  font-weight: 500 !important;
+  transition: all var(--transition) !important;
+}
+.el-button--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(108,92,231,.35) !important;
+}
+
+.el-tag { border-radius: 6px !important; font-weight: 500 !important; }
+
+.el-progress-bar__outer { border-radius: 10px !important; }
+.el-progress-bar__inner { border-radius: 10px !important; }
+
+/* 页面过渡动画 */
+.page-enter-active { animation: fadeInUp .35s ease; }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(108,92,231,.4); }
+  50% { box-shadow: 0 0 0 12px rgba(108,92,231,0); }
+}
+
+/* 微光扫过 */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* 浮动 */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
