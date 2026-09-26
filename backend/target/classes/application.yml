@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: zhitu-ai
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/zhitu_ai?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+# AI服务配置 (支持DeepSeek/OpenAI兼容API)
+ai:
+  provider: deepseek
+  api-key: ${AI_API_KEY:your-api-key-here}
+  api-url: https://api.deepseek.com/v1
+  model: deepseek-chat
+
+# JWT配置
+jwt:
+  secret: zhitu-ai-jwt-secret-key-2024-please-change-in-production
+  expiration: 86400000
+

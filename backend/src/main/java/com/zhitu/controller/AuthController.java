@@ -3,12 +3,10 @@ package com.zhitu.controller;
 import com.zhitu.dto.*;
 import com.zhitu.entity.User;
 import com.zhitu.service.UserService;
-import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * 认证控制器 - 注册/登录
- */
+import javax.validation.Valid;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -22,11 +20,10 @@ public class AuthController {
     @PostMapping("/register")
     public Result<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
         User user = userService.register(request);
-        // 注册成功直接返回token（自动登录）
-        LoginResponse resp = userService.login(new LoginRequest() {{
-            setPhone(request.getPhone());
-            setPassword(request.getPassword());
-        }});
+        LoginRequest loginReq = new LoginRequest();
+        loginReq.setPhone(request.getPhone());
+        loginReq.setPassword(request.getPassword());
+        LoginResponse resp = userService.login(loginReq);
         return Result.success("注册成功", resp);
     }
 

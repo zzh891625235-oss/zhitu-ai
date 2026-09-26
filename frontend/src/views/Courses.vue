@@ -5,12 +5,15 @@
       <p>此页面功能开发中，敬请期待...</p>
     </div>
     <el-empty description="功能开发中">
-      <el-button type="primary" @click="$outer.push('/')">返回首页</el-button>
+      <el-button type="primary" @click="goHome">返回首页</el-button>
     </el-empty>
   </div>
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
+const router = useRouter()
+const goHome = () => router.push('/')
 </script>
 
 <style scoped>
