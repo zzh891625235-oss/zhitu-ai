@@ -36,6 +36,7 @@ com\zhitu\controller\ProfileController.class
 com\zhitu\controller\AuthController.class
 com\zhitu\config\CorsConfig.class
 com\zhitu\mapper\StudentProfileMapper.class
+com\zhitu\controller\CompetitionController.class
 com\zhitu\service\impl\StudentProfileServiceImpl$1.class
 com\zhitu\controller\PlanController.class
 com\zhitu\service\impl\FourYearPlanServiceImpl.class
