@@ -1,1 +1,0 @@
-import{r}from"./request-DPLc32iu.js";function i(t){return r.post("/profile",t)}function o(){return r.get("/profile")}function a(){return r.post("/ai/generate-portrait")}function n(){return r.get("/ai/portrait")}export{n as a,a as b,o as g,i as s};
