@@ -1,0 +1,1 @@
+import{r}from"./request-D8-ecXJT.js";function e(){return r.get("/study-plan")}function a(t=7){return r.post("/study-plan/generate",null,{params:{days:t}})}function u(t){return r.post("/study-plan/record",t)}export{a,e as g,u as r};

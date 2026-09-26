@@ -1,12 +1,14 @@
 com\zhitu\mapper\CompetitionMapper.class
 com\zhitu\mapper\StudyPlanMapper.class
 com\zhitu\service\impl\ResumeServiceImpl$2.class
+com\zhitu\controller\SettingsController.class
 com\zhitu\mapper\UserMapper.class
 com\zhitu\service\impl\UserServiceImpl.class
 com\zhitu\service\FourYearPlanService.class
 com\zhitu\entity\AiPlan.class
 com\zhitu\mapper\LearningRecordMapper.class
 com\zhitu\entity\Course.class
+com\zhitu\mapper\UserSettingsMapper.class
 com\zhitu\exception\GlobalExceptionHandler.class
 com\zhitu\entity\User.class
 com\zhitu\dto\Result.class
@@ -46,6 +48,7 @@ com\zhitu\mapper\CourseMapper.class
 com\zhitu\service\impl\StudentProfileServiceImpl.class
 com\zhitu\controller\UserController.class
 com\zhitu\dto\RegisterRequest.class
+com\zhitu\entity\UserSettings.class
 com\zhitu\entity\LearningRecord.class
 com\zhitu\service\CompetitionRecommendService.class
 com\zhitu\service\impl\ResumeServiceImpl$1.class

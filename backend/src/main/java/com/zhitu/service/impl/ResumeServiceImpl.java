@@ -47,7 +47,7 @@ public class ResumeServiceImpl implements ResumeService {
         try {
             String prompt = buildPrompt();
             String msg = buildUserMessage(profile, user, learnRecords, growthRecords);
-            String aiResp = aiService.chat(prompt, msg);
+            String aiResp = aiService.chatForUser(userId, prompt, msg);
             String json = extractJson(aiResp);
             Map<String, Object> resume = objectMapper.readValue(json,
                 new TypeReference<Map<String, Object>>() {});
@@ -150,3 +150,4 @@ public class ResumeServiceImpl implements ResumeService {
         return resume;
     }
 }
+

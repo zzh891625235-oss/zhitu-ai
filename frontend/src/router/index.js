@@ -13,6 +13,7 @@ const routes = [
       { path: 'assistant', name: 'Assistant', component: () => import('../views/Assistant.vue'), meta: { title: 'AI助手' } },
       { path: 'growth', name: 'Growth', component: () => import('../views/Growth.vue'), meta: { title: '成长档案' } },
       { path: 'resume', name: 'Resume', component: () => import('../views/Resume.vue'), meta: { title: 'AI简历' } },
+      { path: 'settings', name: 'Settings', component: () => import('../views/Settings.vue'), meta: { title: 'API设置' } },
     ]
   },
   { path: '/login', name: 'Login', component: () => import('../views/Login.vue'), meta: { title: '登录' } },
@@ -20,12 +21,8 @@ const routes = [
   { path: '/init', name: 'InitProfile', component: () => import('../views/InitProfile.vue'), meta: { title: 'AI成长档案初始化' } },
 ]
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes
-})
+const router = createRouter({ history: createWebHistory(), routes })
 
-// 路由守卫 - 未登录跳转登录页
 router.beforeEach((to, from, next) => {
   document.title = to.meta.title ? `智途AI - ${to.meta.title}` : '智途AI'
   const token = localStorage.getItem('token')

@@ -31,7 +31,7 @@ public class AiChatController {
         // 根据类型选择系统提示词
         String systemPrompt = getSystemPrompt(type);
 
-        String answer = aiService.chat(systemPrompt, question);
+        String answer = aiService.chatForUser(userId, systemPrompt, question);
 
         // 保存对话记录
         AiChat chat = new AiChat();
@@ -73,3 +73,4 @@ public class AiChatController {
         }
     }
 }
+

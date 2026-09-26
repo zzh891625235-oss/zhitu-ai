@@ -68,7 +68,7 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         String userMessage = buildPortraitUserMessage(profile, user);
 
         try {
-            String aiResponse = aiService.chat(systemPrompt, userMessage);
+            String aiResponse = aiService.chatForUser(userId, systemPrompt, userMessage);
             // 提取JSON部分
             String jsonStr = extractJson(aiResponse);
             Map<String, Object> portrait = objectMapper.readValue(jsonStr,
@@ -184,3 +184,4 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         }
     }
 }
+

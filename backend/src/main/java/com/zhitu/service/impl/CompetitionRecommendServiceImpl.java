@@ -43,7 +43,7 @@ public class CompetitionRecommendServiceImpl implements CompetitionRecommendServ
         try {
             String prompt = buildPrompt();
             String msg = buildUserMessage(profile, user, allComps);
-            String aiResp = aiService.chat(prompt, msg);
+            String aiResp = aiService.chatForUser(userId, prompt, msg);
             String json = extractJson(aiResp);
             List<Map<String, Object>> recommendations = objectMapper.readValue(json,
                 new TypeReference<List<Map<String, Object>>>() {});
@@ -156,3 +156,4 @@ public class CompetitionRecommendServiceImpl implements CompetitionRecommendServ
         return results.subList(0, Math.min(4, results.size()));
     }
 }
+

@@ -48,7 +48,7 @@ public class StudyPlanServiceImpl implements StudyPlanService {
         try {
             String prompt = buildPrompt();
             String msg = buildUserMessage(profile, recentRecords, days);
-            String aiResp = aiService.chat(prompt, msg);
+            String aiResp = aiService.chatForUser(userId, prompt, msg);
             String json = extractJson(aiResp);
             List<Map<String, Object>> plans = objectMapper.readValue(json,
                 new TypeReference<List<Map<String, Object>>>() {});
@@ -199,3 +199,4 @@ public class StudyPlanServiceImpl implements StudyPlanService {
         return plans;
     }
 }
+

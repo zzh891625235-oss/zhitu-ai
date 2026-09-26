@@ -44,7 +44,7 @@ public class FourYearPlanServiceImpl implements FourYearPlanService {
         String userMessage = buildUserMessage(profile, user);
 
         try {
-            String aiResponse = aiService.chat(systemPrompt, userMessage);
+            String aiResponse = aiService.chatForUser(userId, systemPrompt, userMessage);
             String jsonStr = extractJson(aiResponse);
             Map<String, Object> plan = objectMapper.readValue(jsonStr,
                 new TypeReference<Map<String, Object>>() {});
@@ -222,3 +222,4 @@ public class FourYearPlanServiceImpl implements FourYearPlanService {
         return plan;
     }
 }
+
