@@ -1,0 +1,32 @@
+ # === Java / Maven ===
+ target/
+ *.class
+ *.jar
+ *.war
+ *.log
+ .mvn/
+ mvnw*
+
+ # === Node / Vue ===
+ node_modules/
+ dist/
+ .env.local
+ .env.*.local
+ *.local
+
+ # === IDE ===
+ .idea/
+ *.iml
+ .vscode/
+ *.swp
+ *.swo
+
+ # === OS ===
+ .DS_Store
+ Thumbs.db
+
+ # === 敏感信息 ===
+ application-prod.yml
+ .env.production
+ *.pem
+
