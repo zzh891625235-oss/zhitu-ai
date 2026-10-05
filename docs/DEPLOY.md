@@ -16,28 +16,37 @@
 
 ## 二、本地开发（推荐）
 
-### 2.1 一键脚本
+### 2.1 一键脚本（推荐）
+
+**Windows：双击项目根目录的 bat 文件即可，不需要敲任何命令**
+
+| 文件 | 作用 |
+| --- | --- |
+| `init-db.bat` | 初始化数据库（首次使用先运行这个） |
+| `start.bat` | 启动前后端，并自动打开浏览器 |
+| `start.bat check` | 只检查环境与端口占用，不启动服务 |
+| `start.bat init` | 先初始化数据库，再启动 |
+
+`start.bat` 会依次完成：检查 java / mvn / node / npm → 检查 8080、3000 端口是否被占用 →
+首次运行时安装前端依赖 → 分别在两个新窗口启动后端和前端 → 约 35 秒后打开浏览器。
+
+> 如果数据库密码不是默认的 `123456`，先设置环境变量再双击：
+> 在命令行执行 `set DB_PASSWORD=你的密码` 后运行 `start.bat`，或直接用下面的 PowerShell 脚本。
+
+**macOS / Linux：**
 
 ```bash
-# Windows
-powershell -ExecutionPolicy Bypass -File scripts/init-db.ps1      # 首次：初始化数据库
-powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1    # 启动前后端
-
-# macOS / Linux
-bash scripts/init-db.sh
-bash scripts/start-dev.sh
+bash scripts/init-db.sh          # 首次：初始化数据库
+bash scripts/start-dev.sh        # 启动前后端（日志在 logs/）
+bash scripts/stop-dev.sh         # 停止
 ```
 
-常用参数：
+也可以直接调用 PowerShell 脚本，支持更多参数：
 
-```bash
-# Windows：启动前顺带初始化数据库、或先看看会执行什么
-scripts/start-dev.ps1 -InitDb
-scripts/start-dev.ps1 -DryRun
-
-# macOS / Linux：日志写到 logs/，用 stop-dev.sh 停止
-INIT_DB=1 bash scripts/start-dev.sh
-bash scripts/stop-dev.sh
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/init-db.ps1 -DbPort 3307 -DbPassword 你的密码
+powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -InitDb
+powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -DryRun   # 只打印将要执行的命令
 ```
 
 启动后访问 http://localhost:3000

@@ -84,8 +84,10 @@
 
 ## 四、快速开始
 
-> **最省事的方式**：运行 `scripts/start-dev.ps1`（Windows）或 `scripts/start-dev.sh`（macOS / Linux），
-> 脚本会检查依赖、启动前后端并打印访问地址；加上 `-InitDb` / `INIT_DB=1` 还能顺带建库。
+> **Windows 用户最省事**：直接双击项目根目录的 **`start.bat`**——
+> 它会自动检查环境、启动前后端并打开浏览器。第一次使用请先双击 **`init-db.bat`** 初始化数据库。
+>
+> macOS / Linux 用 `bash scripts/start-dev.sh`（`INIT_DB=1` 可顺带建库）；
 > 也可以用 `docker compose up -d --build` 一键部署。详见 [docs/DEPLOY.md](docs/DEPLOY.md)。
 
 ### 0. 环境要求
