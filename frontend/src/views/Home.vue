@@ -1,5 +1,14 @@
 <template>
   <div class="dashboard">
+    <!-- 未配置 AI Key 时的引导：先让用户知道当前是规则模板，再引导去配置 -->
+    <div class="ai-guide" v-if="aiConfigured === false">
+      <el-icon :size="16"><InfoFilled /></el-icon>
+      <div class="ag-text">
+        <b>当前是「规则模板模式」</b>
+        <span>内容按你的专业方向生成，但不够个性化。配置 AI API Key 后，可获得针对你个人情况的深度分析。</span>
+      </div>
+      <el-button type="primary" size="small" @click="$router.push('/home/settings')">去配置</el-button>
+    </div>
     <section class="welcome">
       <div class="wl-left">
         <p class="wl-greet">{{ greetingText }}</p>
@@ -47,10 +56,10 @@
 </template>
 
 <script setup>
-import { ref,computed,onMounted,onUnmounted,nextTick,watch } from 'vue'; import { useUserStore } from '../stores/user'; import { Medal,Reading,TrophyBase,Timer } from '@element-plus/icons-vue'; import * as echarts from 'echarts/core'; import { RadarChart } from 'echarts/charts'; import { RadarComponent,TooltipComponent } from 'echarts/components'; import { CanvasRenderer } from 'echarts/renderers'; import { getProfileApi,getPortraitApi } from '../api/profile'; import { getPlanApi } from '../api/plan'; import { getStudyPlanApi } from '../api/studyplan'
+import { ref,computed,onMounted,onUnmounted,nextTick,watch } from 'vue'; import { useUserStore } from '../stores/user'; import { Medal,Reading,TrophyBase,Timer,InfoFilled } from '@element-plus/icons-vue'; import * as echarts from 'echarts/core'; import { RadarChart } from 'echarts/charts'; import { RadarComponent,TooltipComponent } from 'echarts/components'; import { CanvasRenderer } from 'echarts/renderers'; import { getProfileApi,getPortraitApi } from '../api/profile'; import { getPlanApi } from '../api/plan'; import { getStudyPlanApi } from '../api/studyplan'; import { getAiStatusApi } from '../api/ai'
 // 按需注册 ECharts 模块，避免把整个 echarts（约 1MB）打进首屏包
 echarts.use([RadarChart,RadarComponent,TooltipComponent,CanvasRenderer])
-const userStore=useUserStore(); const radarChart=ref(null); const profile=ref(null); const portrait=ref(null); const hasPlan=ref(false); const hasRecords=ref(false); let chartInstance=null
+const userStore=useUserStore(); const radarChart=ref(null); const profile=ref(null); const portrait=ref(null); const hasPlan=ref(false); const hasRecords=ref(false); const aiConfigured=ref(null); let chartInstance=null
 const majorName=computed(()=>profile.value?.majorName||'')
 const overall=computed(()=>{const s=portrait.value?.scores;if(!s)return 0;const v=[s.programming,s.algorithm,s.project,s.competition,s.ai,s.english].filter(x=>x>0);return v.length?Math.round(v.reduce((a,b)=>a+b)/v.length):0})
 const h=new Date().getHours(); const greetingText=computed(()=>h<12?'早上好':h<18?'下午好':'晚上好')
@@ -60,15 +69,41 @@ const loopPercent=computed(()=>Math.min(100,(loopDone.value/5)*100))
 const loopHint=computed(()=>{if(!portrait.value)return '完成档案初始化，开启AI成长闭环';if(!hasPlan.value)return 'AI画像已生成 — 去生成你的四年规划';if(!hasRecords.value)return '规划就绪 — 开始打卡，AI动态调整';return '闭环运转中 — AI持续分析学习数据'})
 const stats=computed(()=>[{icon:Medal,value:overall.value+'分',label:'综合能力',bg:'rgba(139,195,74,.12)',color:'#8BC34A'},{icon:Reading,value:'12门',label:'推荐课程',bg:'rgba(102,187,106,.08)',color:'#66BB6A'},{icon:TrophyBase,value:'6个',label:'推荐竞赛',bg:'rgba(168,85,247,.12)',color:'#A855F7'},{icon:Timer,value:loopPercent.value+'%',label:'闭环完成',bg:'rgba(239,83,80,.08)',color:'#EF5350'}])
 const quicks=[{icon:'🎯',label:'四年规划',to:'/home/plan'},{icon:'📖',label:'知识地图',to:'/home/courses'},{icon:'🏆',label:'竞赛推荐',to:'/home/competitions'},{icon:'🤖',label:'AI助手',to:'/home/assistant'},{icon:'📊',label:'学习打卡',to:'/home/growth'},{icon:'📄',label:'AI简历',to:'/home/resume'}]
-onMounted(async()=>{try{profile.value=(await getProfileApi()).data}catch(e){}try{portrait.value=(await getPortraitApi()).data}catch(e){}try{await getPlanApi();hasPlan.value=true}catch(e){}try{const p=(await getStudyPlanApi()).data;hasRecords.value=p.length>0}catch(e){}await nextTick();renderRadar();window.addEventListener('resize',handleResize)})
+onMounted(async()=>{try{profile.value=(await getProfileApi()).data}catch(e){}try{portrait.value=(await getPortraitApi()).data}catch(e){}try{await getPlanApi();hasPlan.value=true}catch(e){}try{const p=(await getStudyPlanApi()).data;hasRecords.value=p.length>0}catch(e){}try{aiConfigured.value=(await getAiStatusApi()).data?.configured===true}catch(e){}await nextTick();renderRadar();window.addEventListener('resize',handleResize)})
 onUnmounted(()=>{window.removeEventListener('resize',handleResize);if(chartInstance){chartInstance.dispose();chartInstance=null}})
 watch(portrait,async()=>{await nextTick();renderRadar()})
 function handleResize(){chartInstance?.resize()}
-function renderRadar(){if(!radarChart.value)return;if(!chartInstance)chartInstance=echarts.init(radarChart.value);const s=portrait.value?.scores||{};chartInstance.setOption({radar:{indicator:[{name:'编程',max:100},{name:'算法',max:100},{name:'项目',max:100},{name:'竞赛',max:100},{name:'AI',max:100},{name:'英语',max:100}],center:['50%','52%'],radius:'65%',axisName:{color:'rgba(255,255,255,.3)',fontSize:12},splitArea:{areaStyle:{color:['rgba(139,195,74,.01)','rgba(139,195,74,.03)']}}},series:[{type:'radar',data:[{value:[s.programming||20,s.algorithm||20,s.project||20,s.competition||20,s.ai||20,s.english||20],areaStyle:{color:'rgba(139,195,74,.15)'},lineStyle:{color:'#8BC34A',width:2},itemStyle:{color:'#8BC34A'}}]}]},true)}
+function renderRadar(){
+  if(!radarChart.value)return
+  if(!chartInstance)chartInstance=echarts.init(radarChart.value)
+  const s=portrait.value?.scores||{}
+  // 维度名随专业变化：土木专业不该看到「编程 / 算法」这种无关标签，
+  // 后端在降级画像里会给出 dimensionLabels，没有时回退到计算机方向的默认值
+  const labels=portrait.value?.dimensionLabels||['编程','算法','项目','竞赛','AI','英语']
+  chartInstance.setOption({
+    radar:{
+      indicator:labels.slice(0,6).map(name=>({name,max:100})),
+      center:['50%','52%'],radius:'65%',
+      axisName:{color:'rgba(255,255,255,.3)',fontSize:12},
+      splitArea:{areaStyle:{color:['rgba(139,195,74,.01)','rgba(139,195,74,.03)']}}
+    },
+    series:[{type:'radar',data:[{
+      value:[s.programming||20,s.algorithm||20,s.project||20,s.competition||20,s.ai||20,s.english||20],
+      areaStyle:{color:'rgba(139,195,74,.15)'},
+      lineStyle:{color:'#8BC34A',width:2},
+      itemStyle:{color:'#8BC34A'}
+    }]}]
+  },true)
+}
 </script>
 
 <style scoped>
 .dashboard{display:flex;flex-direction:column;gap:24px}
+.ai-guide{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:var(--radius);background:rgba(245,165,36,.08);border:1px solid rgba(245,165,36,.2);color:#F5C97A}
+.ai-guide .ag-text{display:flex;flex-direction:column;gap:3px;flex:1}
+.ai-guide b{font-weight:600;font-size:13px}
+.ai-guide span{color:var(--mist);font-size:12.5px;line-height:1.5}
+.ai-guide .el-button{flex-shrink:0}
 .welcome{display:flex;align-items:flex-start;justify-content:space-between;padding:8px 0 0}.wl-left{flex:1}.wl-greet{font-size:13px;color:var(--mist);font-weight:400;margin-bottom:4px}.wl-left h1{font-size:30px;font-weight:300;color:#fff;margin-bottom:8px;letter-spacing:.02em}.wl-desc{font-size:14px;color:var(--mist);max-width:500px;line-height:1.7;font-weight:300}.wl-meta{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--fog)}.wl-sep{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.08)}.wl-st{color:#66BB6A}
 .ring{position:relative;width:120px;height:120px;flex-shrink:0}.ring-fill{transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)}.ring-c{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}.ring-n{display:block;font-size:26px;font-weight:300;color:#8BC34A}.ring-l{display:block;font-size:10px;color:var(--fog);margin-top:2px;letter-spacing:.06em}
 .loop{background:var(--glass);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 32px 18px;backdrop-filter:blur(24px)}.loop-track{display:flex;align-items:center;justify-content:space-between}.ln{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.08);text-align:center;flex:1;opacity:0;animation:fadein .4s cubic-bezier(.22,.61,.36,1) forwards;animation-delay:calc(var(--i)*.12s)}.ln.done{color:#8BC34A}.ln-dot{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.08)}.ln.done .ln-dot{background:#8BC34A}.ln-ico{font-size:20px;filter:grayscale(1);opacity:.3;transition:all .4s}.ln.done .ln-ico{filter:grayscale(0);opacity:1}.ln-lbl{font-weight:400}.ln.done .ln-lbl{font-weight:500}.loop-bar{height:2px;background:rgba(255,255,255,.03);border-radius:1px;margin:14px 0 6px;overflow:hidden}.loop-fill{height:100%;border-radius:1px;background:#8BC34A;transition:width .8s cubic-bezier(.4,0,.2,1)}.loop-hint{text-align:center;font-size:11px;color:var(--fog);font-weight:300}@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}

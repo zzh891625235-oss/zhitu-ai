@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
+import com.zhitu.ai.MajorDirection;
 import com.zhitu.entity.Major;
 import com.zhitu.entity.StudentProfile;
 import com.zhitu.entity.User;
@@ -174,12 +175,22 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         return "{}";
     }
 
-    /** AI不可用时的兜底画像 */
+    /**
+     * AI 不可用时的兜底画像。
+     *
+     * 内容按专业方向给出：让土木工程的学生看到「每天 1-2 小时编程练习」「关注蓝桥杯」
+     * 是没有意义的，不如给一些他真正用得上的建议。
+     */
     private Map<String, Object> buildFallbackPortrait(StudentProfile p) {
+        MajorDirection direction = MajorDirection.resolve(resolveMajorName(p.getMajorId()));
+        String grade = (p.getGrade() == null || p.getGrade().isEmpty()) ? "在读" : p.getGrade();
+
         Map<String, Object> portrait = new LinkedHashMap<>();
-        portrait.put("summary", "你是一位有潜力的" + p.getGrade() + "学生，基础能力正在成长中。建议制定系统学习计划，逐步提升核心技能。");
-        portrait.put("strengths", Arrays.asList("学习态度积极", "对专业有兴趣", "目标明确"));
-        portrait.put("weaknesses", Arrays.asList("项目经验不足", "算法基础待加强", "竞赛经历较少"));
+        portrait.put("summary", "你是" + grade + "的" + direction.label() + "学生。"
+            + "以下评估由系统按你的自评数据生成，是一份通用参考。"
+            + "在「API 设置」中配置 Key 后，可以得到贴合你个人情况的深度分析。");
+        portrait.put("strengths", direction.strengths());
+        portrait.put("weaknesses", direction.weaknesses());
 
         Map<String, Object> scores = new LinkedHashMap<>();
         scores.put("programming", levelToScore(p.getProgrammingLevel()));
@@ -193,17 +204,48 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         scores.put("overall", sum / 6);
         portrait.put("scores", scores);
 
-        portrait.put("suggestions", Arrays.asList(
-            "建议每天保持1-2小时编程练习",
-            "参加至少1个团队项目积累经验",
-            "关注蓝桥杯等适合新手的竞赛"
-        ));
-        portrait.put("threeMonthPlan", Arrays.asList(
-            "第1个月：夯实编程基础，完成1个小项目",
-            "第2个月：学习数据结构和算法，刷题30道",
-            "第3个月：参加1个校级比赛，积累竞赛经验"
-        ));
+        // 雷达图的六个维度名随专业变化，否则土木专业会看到「编程 / 算法」这种无关标签
+        portrait.put("dimensionLabels", dimensionLabels(direction));
+        portrait.put("suggestions", direction.suggestions());
+
+        MajorDirection.YearPlan firstYear = direction.years()[0];
+        List<String> threeMonth = new ArrayList<>();
+        List<String> goals = firstYear.goals;
+        for (int i = 0; i < Math.min(3, goals.size()); i++) {
+            threeMonth.add("第" + (i + 1) + "个月：" + goals.get(i));
+        }
+        portrait.put("threeMonthPlan", threeMonth);
         return portrait;
+    }
+
+    /** 不同专业方向的能力维度命名 */
+    private List<String> dimensionLabels(MajorDirection direction) {
+        switch (direction.label()) {
+            case "计算机 / 电子信息":
+                return Arrays.asList("编程", "算法", "项目", "竞赛", "AI", "英语");
+            case "土木 / 建筑类":
+                return Arrays.asList("力学", "制图", "专业软件", "实践", "竞赛", "英语");
+            case "机电 / 自动化 / 材料类":
+                return Arrays.asList("数理", "制图", "专业软件", "动手", "竞赛", "英语");
+            case "医学类":
+                return Arrays.asList("基础医学", "临床", "实验", "科研", "竞赛", "医学英语");
+            case "经管类":
+                return Arrays.asList("经济学", "财务", "数据分析", "实践", "竞赛", "英语");
+            case "法学类":
+                return Arrays.asList("法条", "案例", "逻辑", "写作", "实务", "英语");
+            case "教育类":
+                return Arrays.asList("教育理论", "心理学", "教学技能", "实践", "竞赛", "英语");
+            case "艺术类":
+                return Arrays.asList("专业技能", "作品集", "创意", "软件", "展览", "英语");
+            case "农学类":
+                return Arrays.asList("生物学", "实验", "田间实践", "科研", "竞赛", "英语");
+            case "理科基础类":
+                return Arrays.asList("数学", "推理", "计算工具", "科研", "竞赛", "英语");
+            case "人文社科 / 外语类":
+                return Arrays.asList("阅读", "写作", "研究方法", "表达", "实践", "外语");
+            default:
+                return Arrays.asList("专业理论", "实践", "工具", "协作", "竞赛", "英语");
+        }
     }
 
     /** 等级转分数 */

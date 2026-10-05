@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
+import com.zhitu.ai.MajorDirection;
 import com.zhitu.entity.AiPlan;
 import com.zhitu.entity.Major;
 import com.zhitu.entity.StudentProfile;
@@ -159,99 +160,62 @@ public class FourYearPlanServiceImpl implements FourYearPlanService {
         }
     }
 
+    /**
+     * AI 不可用时的兜底规划。
+     *
+     * 内容按专业方向给出：土木工程的学生不该看到「C语言 / 数据结构 / 蓝桥杯」，
+     * 那对他的规划没有任何参考价值。方向划分见 MajorDirection。
+     */
     private Map<String, Object> buildFallbackPlan(StudentProfile p) {
+        MajorDirection direction = MajorDirection.resolve(resolveMajorName(p.getMajorId()));
+        MajorDirection.YearPlan[] years = direction.years();
+        String career = (p.getCareerGoal() == null || p.getCareerGoal().isEmpty()) ? "就业" : p.getCareerGoal();
+
         Map<String, Object> plan = new LinkedHashMap<>();
-        boolean isCS = true; // 计算机专业
+        plan.put("overview", "这是为你（" + direction.label() + " · " + p.getGrade() + " · 目标" + career
+            + "）生成的规划框架。在「API 设置」中配置 Key 后，AI 会结合你的具体基础给出更贴合的版本。");
 
-        String career = p.getCareerGoal() != null ? p.getCareerGoal() : "就业";
-
-        plan.put("overview", "基于你的" + p.getGrade() + "年级和" + career + "目标，为你制定以下四年规划。");
-
-        // 大一
-        Map<String, Object> freshman = new LinkedHashMap<>();
-        freshman.put("theme", "打好基础，探索方向");
-        freshman.put("goals", Arrays.asList("掌握至少一门编程语言", "通过英语四级", "培养自主学习习惯", "了解专业方向"));
-        freshman.put("courses", Arrays.asList("C语言程序设计", "Python程序设计", "高等数学", "大学英语"));
-        freshman.put("skills", Arrays.asList("C语言基础", "Python基础语法", "Linux基本操作"));
-        freshman.put("competitions", Arrays.asList("校级编程竞赛", "英语竞赛"));
-        freshman.put("tips", "大一最重要的是打好编程和数学基础，不要急于求成。多写代码，少看视频。");
-        plan.put("freshman", freshman);
-
-        // 大二
-        Map<String, Object> sophomore = new LinkedHashMap<>();
-        sophomore.put("theme", "核心能力建设");
-        sophomore.put("goals", Arrays.asList("掌握数据结构和算法", "完成2-3个实战项目", "通过英语六级", "参加省级以上竞赛"));
-        sophomore.put("courses", Arrays.asList("数据结构", "数据库原理", "Java程序设计", "Web前端开发", "Spring Boot框架"));
-        sophomore.put("skills", Arrays.asList("Java/Spring Boot", "MySQL", "Vue.js", "Git版本控制"));
-        sophomore.put("competitions", Arrays.asList("蓝桥杯", "传智杯", "大学生计算机设计大赛"));
-        sophomore.put("tips", "大二是能力爆发的关键期。数据结构必须学扎实，至少参加一个比赛积累经验。");
-        plan.put("sophomore", sophomore);
-
-        // 大三
-        Map<String, Object> junior = new LinkedHashMap<>();
-        if ("考研".equals(career) || "保研".equals(career)) {
-            junior.put("theme", "升学备战");
-            junior.put("goals", Arrays.asList("完成考研/保研科目复习", "保持GPA", "参与科研项目", "发表论文"));
-            junior.put("courses", Arrays.asList("操作系统", "计算机网络", "机器学习", "软件工程"));
-            junior.put("skills", Arrays.asList("数学(高数/线代/概率)", "408专业课", "英语"));
-            junior.put("competitions", Arrays.asList("数学建模竞赛", "ACM-ICPC"));
-            junior.put("tips", "大三上学期确定目标院校，下学期开始系统复习。科研经历对复试很重要。");
-        } else if ("考公".equals(career)) {
-            junior.put("theme", "公考准备 + 专业提升");
-            junior.put("goals", Arrays.asList("开始行测/申论学习", "完成专业核心课", "准备实习"));
-            junior.put("courses", Arrays.asList("操作系统", "计算机网络", "软件工程"));
-            junior.put("skills", Arrays.asList("行测刷题", "申论写作", "Java/Python项目"));
-            junior.put("competitions", Arrays.asList("互联网+创新创业大赛"));
-            junior.put("tips", "考公和专业技术两手准备，不要孤注一掷。");
-        } else {
-            junior.put("theme", "职业方向确定 + 深度实战");
-            junior.put("goals", Arrays.asList("确定职业方向(后端/前端/AI等)", "完成2个深度项目", "找一份实习", "准备秋招"));
-            junior.put("courses", Arrays.asList("操作系统", "计算机网络", "机器学习", "软件工程"));
-            junior.put("skills", Arrays.asList("Spring Boot深入", "Redis", "Docker", "设计模式"));
-            junior.put("competitions", Arrays.asList("互联网+创新创业大赛", "数学建模竞赛"));
-            junior.put("tips", "大三要找实习！实习经历是校招最重要的加分项。暑假开始准备秋招。");
-        }
-        plan.put("junior", junior);
-
-        // 大四
-        Map<String, Object> senior = new LinkedHashMap<>();
-        if ("考研".equals(career) || "保研".equals(career)) {
-            senior.put("theme", "冲刺 + 毕业");
-            senior.put("goals", Arrays.asList("完成考研/保研", "完成毕业设计", "准备复试"));
-            senior.put("courses", Arrays.asList("毕业设计"));
-            senior.put("skills", Arrays.asList("复试准备", "科研方向深入"));
-            senior.put("competitions", Collections.emptyList());
-            senior.put("tips", "考研冲刺阶段保持心态，保研同学提前联系导师。");
-        } else if ("考公".equals(career)) {
-            senior.put("theme", "公考冲刺 + 就业双选");
-            senior.put("goals", Arrays.asList("参加国考/省考", "完成毕业设计", "准备春招备选"));
-            senior.put("courses", Arrays.asList("毕业设计"));
-            senior.put("skills", Arrays.asList("真题模拟", "面试技巧"));
-            senior.put("competitions", Collections.emptyList());
-            senior.put("tips", "不要把所有希望放在考公上，春招也要关注。");
-        } else {
-            senior.put("theme", "收获成果");
-            senior.put("goals", Arrays.asList("完成秋招/春招签约", "完成毕业设计", "规划职业发展"));
-            senior.put("courses", Arrays.asList("毕业设计"));
-            senior.put("skills", Arrays.asList("简历优化", "面试技巧", "职业素养"));
-            senior.put("competitions", Collections.emptyList());
-            senior.put("tips", "第一份工作很重要，选择能让你快速成长的公司和岗位。");
-        }
-        plan.put("senior", senior);
-
-        plan.put("risks", Arrays.asList(
-            "大二数据结构没学好→ 后续算法和面试都会受影响",
-            "没有实习经历→ 校招竞争力明显不足",
-            "英语六级没过→ 部分大厂有硬性要求"
-        ));
-        plan.put("certificates", Arrays.asList(
-            "大学英语四级/六级(CET-4/6)",
-            "软件设计师(中级职称)",
-            "计算机等级考试",
-            career.contains("就业") ? "阿里/华为等大厂认证" : "教师资格证"
-        ));
-
+        plan.put("freshman", toYearMap(years[0]));
+        plan.put("sophomore", toYearMap(years[1]));
+        plan.put("junior", toYearMap(years[2], careerGoals(career, true)));
+        plan.put("senior", toYearMap(years[3], careerGoals(career, false)));
+        plan.put("risks", direction.risks());
+        plan.put("certificates", direction.certificates());
         return plan;
     }
-}
 
+    /** 按职业目标给大三 / 大四追加几条更有针对性的目标 */
+    private List<String> careerGoals(String career, boolean junior) {
+        if ("考研".equals(career) || "保研".equals(career)) {
+            return junior ? Arrays.asList("确定目标院校与导师", "开始系统复习")
+                          : Arrays.asList("完成考研 / 保研", "准备复试");
+        }
+        if ("考公".equals(career)) {
+            return junior ? Arrays.asList("开始行测与申论学习")
+                          : Arrays.asList("参加国考 / 省考");
+        }
+        if ("创业".equals(career)) {
+            return junior ? Arrays.asList("验证商业想法，做小范围尝试")
+                          : Arrays.asList("推进项目落地");
+        }
+        return junior ? Arrays.asList("争取一份对口实习", "提前准备秋招")
+                      : Arrays.asList("完成秋招签约");
+    }
+
+    private Map<String, Object> toYearMap(MajorDirection.YearPlan year) {
+        return toYearMap(year, Collections.<String>emptyList());
+    }
+
+    private Map<String, Object> toYearMap(MajorDirection.YearPlan year, List<String> extraGoals) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("theme", year.theme);
+        List<String> goals = new ArrayList<>(year.goals);
+        goals.addAll(extraGoals);
+        map.put("goals", goals);
+        map.put("courses", year.courses);
+        map.put("skills", year.skills);
+        map.put("competitions", year.competitions);
+        map.put("tips", year.tips);
+        return map;
+    }
+}
