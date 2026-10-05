@@ -4,6 +4,7 @@
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File scripts/init-db.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts/init-db.ps1 -DbPassword 你的密码
+#   powershell -ExecutionPolicy Bypass -File scripts/init-db.ps1 -Reset   # 删库重建（会清空数据）
 #
 # 依次执行 database 目录下的三个脚本：
 #   schema.sql  建库建表
@@ -18,7 +19,8 @@ param(
     [string]$DbHost = 'localhost',
     [int]$DbPort = 3306,
     [string]$DbUser = 'root',
-    [string]$DbPassword = '123456'
+    [string]$DbPassword = '123456',
+    [switch]$Reset
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,6 +46,19 @@ Write-Host ''
 # 通过 MYSQL_PWD 环境变量传密码：命令行传 --password 会让 mysql 向 stderr
 # 打印安全告警，而 $ErrorActionPreference='Stop' 会把它当成致命错误中断脚本。
 $env:MYSQL_PWD = $DbPassword
+# -Reset：先删除整个数据库再重建。
+# 用于表结构与当前脚本差异过大、自动补齐也救不回来的情况。
+# 注意：会清空该库的所有数据。
+if ($Reset) {
+    Write-Host '==> 删除已有数据库（-Reset）' -ForegroundColor Yellow
+    $prevPref = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    & mysql --host=$DbHost --port=$DbPort --user=$DbUser -e 'DROP DATABASE IF EXISTS zhitu_ai' 2>&1 |
+        Where-Object { $_ -notmatch 'Using a password on the command line' }
+    $ErrorActionPreference = $prevPref
+    Write-Host '    已删除，接下来重新创建'
+    Write-Host ''
+}
 
 $failed = $false
 # mysql 客户端的 source 命令在 Windows 下无法打开含中文或空格的路径，

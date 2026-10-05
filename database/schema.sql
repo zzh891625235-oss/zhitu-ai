@@ -254,5 +254,244 @@ CREATE TABLE IF NOT EXISTS notification (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
+-- 结构补齐（幂等迁移）
+--
+-- 为什么需要这一段：
+--   CREATE TABLE IF NOT EXISTS 只保证「表存在」，并不会修改已存在表的结构。
+--   如果数据库是用更早的脚本或手工创建的，就会缺少后续新增的列，
+--   接着执行 data.sql 时会报：Unknown column 'xxx' in 'field list'。
+--
+-- 做法：
+--   逐列查询 information_schema，只对「确实缺失」的列执行 ALTER TABLE，
+--   因此可以安全地重复执行，也不会覆盖已有数据。
+--
+-- 说明：
+--   补上的列一律允许 NULL 且不带 NOT NULL / DEFAULT 约束。
+--   这样即使表里已有数据也不会因为约束冲突而失败——
+--   这里的首要目标是让结构可用，而不是严格复刻建表语句。
+-- ============================================================
+
+DROP PROCEDURE IF EXISTS zhitu_sync_column;
+
+DELIMITER $$
+CREATE PROCEDURE zhitu_sync_column(IN tbl VARCHAR(64), IN col VARCHAR(64), IN col_def VARCHAR(255))
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = tbl AND COLUMN_NAME = col
+    ) THEN
+        SET @ddl = CONCAT('ALTER TABLE `', tbl, '` ADD COLUMN `', col, '` ', col_def);
+        PREPARE stmt FROM @ddl;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END$$
+DELIMITER ;
+
+-- user
+CALL zhitu_sync_column('user', 'phone', 'VARCHAR(20)');
+CALL zhitu_sync_column('user', 'password', 'VARCHAR(255)');
+CALL zhitu_sync_column('user', 'nickname', 'VARCHAR(50)');
+CALL zhitu_sync_column('user', 'avatar', 'VARCHAR(500)');
+CALL zhitu_sync_column('user', 'role', 'VARCHAR(20)');
+CALL zhitu_sync_column('user', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+CALL zhitu_sync_column('user', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- user_settings
+CALL zhitu_sync_column('user_settings', 'user_id', 'BIGINT');
+CALL zhitu_sync_column('user_settings', 'api_key', 'VARCHAR(255)');
+CALL zhitu_sync_column('user_settings', 'api_url', 'VARCHAR(255)');
+CALL zhitu_sync_column('user_settings', 'model', 'VARCHAR(100)');
+CALL zhitu_sync_column('user_settings', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+CALL zhitu_sync_column('user_settings', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- major
+CALL zhitu_sync_column('major', 'name', 'VARCHAR(100)');
+CALL zhitu_sync_column('major', 'description', 'TEXT');
+CALL zhitu_sync_column('major', 'category', 'VARCHAR(50)');
+CALL zhitu_sync_column('major', 'sort_order', 'INT DEFAULT 0');
+CALL zhitu_sync_column('major', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+CALL zhitu_sync_column('major', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- student_profile
+CALL zhitu_sync_column('student_profile', 'user_id', 'BIGINT');
+CALL zhitu_sync_column('student_profile', 'school', 'VARCHAR(100)');
+CALL zhitu_sync_column('student_profile', 'major_id', 'BIGINT');
+CALL zhitu_sync_column('student_profile', 'grade', 'VARCHAR(20)');
+CALL zhitu_sync_column('student_profile', 'gpa', 'VARCHAR(10)');
+CALL zhitu_sync_column('student_profile', 'programming_level', 'VARCHAR(20)');
+CALL zhitu_sync_column('student_profile', 'java_level', 'VARCHAR(20)');
+CALL zhitu_sync_column('student_profile', 'python_level', 'VARCHAR(20)');
+CALL zhitu_sync_column('student_profile', 'cpp_level', 'VARCHAR(20)');
+CALL zhitu_sync_column('student_profile', 'ds_level', 'VARCHAR(20)');
+CALL zhitu_sync_column('student_profile', 'db_level', 'VARCHAR(20)');
+CALL zhitu_sync_column('student_profile', 'web_level', 'VARCHAR(20)');
+CALL zhitu_sync_column('student_profile', 'ai_level', 'VARCHAR(20)');
+CALL zhitu_sync_column('student_profile', 'english_level', 'VARCHAR(20)');
+CALL zhitu_sync_column('student_profile', 'interests', 'TEXT');
+CALL zhitu_sync_column('student_profile', 'career_goal', 'VARCHAR(50)');
+CALL zhitu_sync_column('student_profile', 'ai_portrait', 'JSON');
+CALL zhitu_sync_column('student_profile', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+CALL zhitu_sync_column('student_profile', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- course
+CALL zhitu_sync_column('course', 'major_id', 'BIGINT');
+CALL zhitu_sync_column('course', 'name', 'VARCHAR(200)');
+CALL zhitu_sync_column('course', 'description', 'TEXT');
+CALL zhitu_sync_column('course', 'difficulty', 'VARCHAR(20)');
+CALL zhitu_sync_column('course', 'semester', 'VARCHAR(20)');
+CALL zhitu_sync_column('course', 'category', 'VARCHAR(50)');
+CALL zhitu_sync_column('course', 'sort_order', 'INT DEFAULT 0');
+CALL zhitu_sync_column('course', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+CALL zhitu_sync_column('course', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- knowledge_point（本次报错就出在这里缺 parent_id）
+CALL zhitu_sync_column('knowledge_point', 'course_id', 'BIGINT');
+CALL zhitu_sync_column('knowledge_point', 'name', 'VARCHAR(200)');
+CALL zhitu_sync_column('knowledge_point', 'description', 'TEXT');
+CALL zhitu_sync_column('knowledge_point', 'parent_id', 'BIGINT');
+CALL zhitu_sync_column('knowledge_point', 'sort_order', 'INT DEFAULT 0');
+CALL zhitu_sync_column('knowledge_point', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+CALL zhitu_sync_column('knowledge_point', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- competition
+CALL zhitu_sync_column('competition', 'name', 'VARCHAR(200)');
+CALL zhitu_sync_column('competition', 'description', 'TEXT');
+CALL zhitu_sync_column('competition', 'type', 'VARCHAR(50)');
+CALL zhitu_sync_column('competition', 'suitable_major', 'VARCHAR(500)');
+CALL zhitu_sync_column('competition', 'suitable_grade', 'VARCHAR(200)');
+CALL zhitu_sync_column('competition', 'registration_start', 'DATE');
+CALL zhitu_sync_column('competition', 'registration_end', 'DATE');
+CALL zhitu_sync_column('competition', 'competition_start', 'DATE');
+CALL zhitu_sync_column('competition', 'competition_end', 'DATE');
+CALL zhitu_sync_column('competition', 'difficulty', 'VARCHAR(20)');
+CALL zhitu_sync_column('competition', 'official_url', 'VARCHAR(500)');
+CALL zhitu_sync_column('competition', 'recommend_days', 'INT DEFAULT 30');
+CALL zhitu_sync_column('competition', 'status', 'VARCHAR(20)');
+CALL zhitu_sync_column('competition', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+CALL zhitu_sync_column('competition', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- ai_plan
+CALL zhitu_sync_column('ai_plan', 'user_id', 'BIGINT');
+CALL zhitu_sync_column('ai_plan', 'plan_type', 'VARCHAR(50)');
+CALL zhitu_sync_column('ai_plan', 'content', 'JSON');
+CALL zhitu_sync_column('ai_plan', 'start_date', 'DATE');
+CALL zhitu_sync_column('ai_plan', 'end_date', 'DATE');
+CALL zhitu_sync_column('ai_plan', 'status', 'VARCHAR(20)');
+CALL zhitu_sync_column('ai_plan', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+CALL zhitu_sync_column('ai_plan', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- learning_record
+CALL zhitu_sync_column('learning_record', 'user_id', 'BIGINT');
+CALL zhitu_sync_column('learning_record', 'course_id', 'BIGINT');
+CALL zhitu_sync_column('learning_record', 'knowledge_point_id', 'BIGINT');
+CALL zhitu_sync_column('learning_record', 'progress', 'INT DEFAULT 0');
+CALL zhitu_sync_column('learning_record', 'study_minutes', 'INT DEFAULT 0');
+CALL zhitu_sync_column('learning_record', 'status', 'VARCHAR(20)');
+CALL zhitu_sync_column('learning_record', 'notes', 'TEXT');
+CALL zhitu_sync_column('learning_record', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- study_plan
+CALL zhitu_sync_column('study_plan', 'user_id', 'BIGINT');
+CALL zhitu_sync_column('study_plan', 'course_id', 'BIGINT');
+CALL zhitu_sync_column('study_plan', 'plan_date', 'DATE');
+CALL zhitu_sync_column('study_plan', 'content', 'VARCHAR(500)');
+CALL zhitu_sync_column('study_plan', 'is_completed', 'TINYINT(1) DEFAULT 0');
+CALL zhitu_sync_column('study_plan', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+CALL zhitu_sync_column('study_plan', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- growth_record
+CALL zhitu_sync_column('growth_record', 'user_id', 'BIGINT');
+CALL zhitu_sync_column('growth_record', 'record_type', 'VARCHAR(50)');
+CALL zhitu_sync_column('growth_record', 'title', 'VARCHAR(200)');
+CALL zhitu_sync_column('growth_record', 'description', 'TEXT');
+CALL zhitu_sync_column('growth_record', 'record_date', 'DATE');
+CALL zhitu_sync_column('growth_record', 'evidence_url', 'VARCHAR(500)');
+CALL zhitu_sync_column('growth_record', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- ai_chat
+CALL zhitu_sync_column('ai_chat', 'user_id', 'BIGINT');
+CALL zhitu_sync_column('ai_chat', 'chat_type', 'VARCHAR(50)');
+CALL zhitu_sync_column('ai_chat', 'question', 'TEXT');
+CALL zhitu_sync_column('ai_chat', 'answer', 'TEXT');
+CALL zhitu_sync_column('ai_chat', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- resume
+CALL zhitu_sync_column('resume', 'user_id', 'BIGINT');
+CALL zhitu_sync_column('resume', 'content', 'JSON');
+CALL zhitu_sync_column('resume', 'template', 'VARCHAR(50)');
+CALL zhitu_sync_column('resume', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+CALL zhitu_sync_column('resume', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+-- notification
+CALL zhitu_sync_column('notification', 'user_id', 'BIGINT');
+CALL zhitu_sync_column('notification', 'title', 'VARCHAR(200)');
+CALL zhitu_sync_column('notification', 'content', 'TEXT');
+CALL zhitu_sync_column('notification', 'is_read', 'TINYINT(1) DEFAULT 0');
+CALL zhitu_sync_column('notification', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+
+DROP PROCEDURE IF EXISTS zhitu_sync_column;
+
+-- ============================================================
+-- 唯一索引补齐
+--
+-- 只补列还不够：data.sql 里大量使用 ON DUPLICATE KEY UPDATE，
+-- 它依赖唯一键才能做到「重复执行不产生重复数据」。
+-- 旧结构的表通常也没有这些唯一键，于是每次执行都会重复插入
+-- （实测：课程表会从 53 条涨到 106 条）。
+--
+-- 注意：建立唯一索引前必须先清掉已有的重复行，否则 ALTER 会直接失败。
+-- 下面统一按「保留 id 最小的一条」处理。
+-- ============================================================
+
+-- 去重（没有重复时影响 0 行，可安全重复执行）
+DELETE a FROM `user` a INNER JOIN `user` b
+    ON a.id > b.id AND a.phone = b.phone;
+DELETE a FROM `user_settings` a INNER JOIN `user_settings` b
+    ON a.id > b.id AND a.user_id = b.user_id;
+DELETE a FROM `student_profile` a INNER JOIN `student_profile` b
+    ON a.id > b.id AND a.user_id = b.user_id;
+DELETE a FROM `resume` a INNER JOIN `resume` b
+    ON a.id > b.id AND a.user_id = b.user_id;
+DELETE a FROM `major` a INNER JOIN `major` b
+    ON a.id > b.id AND a.name = b.name;
+DELETE a FROM `course` a INNER JOIN `course` b
+    ON a.id > b.id AND a.name = b.name
+    AND (a.major_id = b.major_id OR (a.major_id IS NULL AND b.major_id IS NULL));
+DELETE a FROM `competition` a INNER JOIN `competition` b
+    ON a.id > b.id AND a.name = b.name;
+DELETE a FROM `learning_record` a INNER JOIN `learning_record` b
+    ON a.id > b.id AND a.user_id = b.user_id
+    AND (a.course_id = b.course_id OR (a.course_id IS NULL AND b.course_id IS NULL));
+
+DROP PROCEDURE IF EXISTS zhitu_sync_unique;
+
+DELIMITER $$
+CREATE PROCEDURE zhitu_sync_unique(IN tbl VARCHAR(64), IN idx VARCHAR(64), IN idx_cols VARCHAR(255))
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = tbl AND INDEX_NAME = idx
+    ) THEN
+        SET @ddl = CONCAT('ALTER TABLE `', tbl, '` ADD UNIQUE KEY `', idx, '` (', idx_cols, ')');
+        PREPARE stmt FROM @ddl;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END$$
+DELIMITER ;
+
+CALL zhitu_sync_unique('user', 'uk_phone', '`phone`');
+CALL zhitu_sync_unique('user_settings', 'uk_user_id', '`user_id`');
+CALL zhitu_sync_unique('student_profile', 'uk_user_id', '`user_id`');
+CALL zhitu_sync_unique('resume', 'uk_user_id', '`user_id`');
+CALL zhitu_sync_unique('major', 'uk_major_name', '`name`');
+CALL zhitu_sync_unique('course', 'uk_course_major_name', '`major_id`,`name`');
+CALL zhitu_sync_unique('competition', 'uk_competition_name', '`name`');
+CALL zhitu_sync_unique('learning_record', 'uk_user_course', '`user_id`,`course_id`');
+
+DROP PROCEDURE IF EXISTS zhitu_sync_unique;
+
+-- ============================================================
 -- 结构建立完成，请继续执行 majors.sql 与 data.sql
 -- ============================================================

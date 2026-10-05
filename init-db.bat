@@ -29,8 +29,13 @@ if errorlevel 1 (
 )
 
 echo   提示: 如果数据库密码不是默认的 123456,
-echo         请改用命令行执行并指定密码:
+echo         可用命令行执行并指定密码:
 echo         scripts\init-db.ps1 -DbPassword 你的密码
+echo.
+echo   如果提示 Unknown column 之类的结构错误（旧数据库结构过时），
+echo   重新运行本文件即可 —— 脚本会自动补齐缺失的列与唯一索引。
+echo   若仍然失败，可改为删库重建（会清空该库数据）：
+echo         init-db.bat -Reset
 echo.
 
 powershell -ExecutionPolicy Bypass -File "%~dp0scripts\init-db.ps1" %*

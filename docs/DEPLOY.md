@@ -190,6 +190,8 @@ cd frontend && npm test
 
 | 现象 | 排查方向 |
 | --- | --- |
+| **执行 `data.sql` 报 `Unknown column 'xxx' in 'field list'`** | 你的数据库是**旧结构**（用更早的脚本或手工建的）。`schema.sql` 末尾已内置幂等迁移：会自动补齐缺失的列，并补建唯一索引（补齐前会先去重），直接重新运行 `init-db` 即可。若仍失败，用 `init-db.ps1 -Reset`（或 `init-db.bat -Reset`）删库重建 |
+| 重复执行后数据翻倍 | 同上原因——旧表缺少唯一键导致 `ON DUPLICATE KEY UPDATE` 失效。重新运行一次 `init-db` 即可补上唯一索引并去重 |
 | 页面提示「请先完成档案初始化」 | 正常业务提示，去 `/init` 完善档案即可 |
 | 所有 AI 结果都不带个性化 | 检查是否处于离线模板模式：看 AI 助手顶部的模式徽章，或查 `/api/ai/status` |
 | 流式对话变成一次性返回 | 反向代理的缓冲没关（nginx 需 `proxy_buffering off`） |
