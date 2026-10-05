@@ -52,6 +52,13 @@ public class StudyPlanServiceImpl implements StudyPlanService {
             String json = extractJson(aiResp);
             List<Map<String, Object>> plans = objectMapper.readValue(json,
                 new TypeReference<List<Map<String, Object>>>() {});
+
+            // AI 降级时返回离线模板文本，extractJson 会退化成 "[]"，
+            // 这里校验后走规则模板，避免学习计划页空白
+            if (plans.isEmpty() || plans.get(0).get("task") == null) {
+                return buildFallbackPlan(profile, recentRecords, days, userId);
+            }
+
             // 保存到数据库
             savePlans(userId, plans);
             return plans;

@@ -47,6 +47,14 @@ public class CompetitionRecommendServiceImpl implements CompetitionRecommendServ
             String json = extractJson(aiResp);
             List<Map<String, Object>> recommendations = objectMapper.readValue(json,
                 new TypeReference<List<Map<String, Object>>>() {});
+
+            // AI 降级时返回离线模板文本，extractJson 会退化成 "[]"。
+            // 另外 enrichRecommendations 会强转 competitionId，
+            // 所以这里连元素结构一起校验，避免空推荐或 NPE。
+            if (recommendations.isEmpty() || recommendations.get(0).get("competitionId") == null) {
+                return buildFallbackRecommendations(profile, allComps);
+            }
+
             // 补充竞赛详情
             enrichRecommendations(recommendations, allComps);
             return recommendations;

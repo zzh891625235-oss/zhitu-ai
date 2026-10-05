@@ -54,6 +54,13 @@ public class ResumeServiceImpl implements ResumeService {
             String json = extractJson(aiResp);
             Map<String, Object> resume = objectMapper.readValue(json,
                 new TypeReference<Map<String, Object>>() {});
+
+            // AI 降级时返回离线模板文本，extractJson 会退化成 "{}"，
+            // 直接保存会导致简历页显示一张空白 A4 纸
+            if (resume.isEmpty() || resume.get("name") == null) {
+                return buildFallbackResume(profile, user, learnRecords, growthRecords, userId);
+            }
+
             saveResume(userId, resume);
             return resume;
         } catch (Exception e) {

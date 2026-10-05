@@ -54,6 +54,14 @@ public class FourYearPlanServiceImpl implements FourYearPlanService {
             Map<String, Object> plan = objectMapper.readValue(jsonStr,
                 new TypeReference<Map<String, Object>>() {});
 
+            // AI 降级时返回的是离线模板文本，extractJson 会退化成 "{}"，
+            // 这里必须校验，否则会把一份空规划存进数据库
+            if (plan.isEmpty() || plan.get("freshman") == null) {
+                Map<String, Object> fallback = buildFallbackPlan(profile);
+                savePlan(userId, fallback);
+                return fallback;
+            }
+
             // 保存到数据库
             savePlan(userId, plan);
             return plan;

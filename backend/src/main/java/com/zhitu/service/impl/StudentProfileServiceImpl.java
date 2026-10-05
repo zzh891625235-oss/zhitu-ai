@@ -79,14 +79,33 @@ public class StudentProfileServiceImpl implements StudentProfileService {
             Map<String, Object> portrait = objectMapper.readValue(jsonStr,
                 new TypeReference<Map<String, Object>>() {});
 
-            // 保存AI画像到档案
-            profile.setAiPortrait(objectMapper.writeValueAsString(portrait));
-            profileMapper.updateById(profile);
+            // 关键校验：
+            // AI 未配置或调用失败时，chatForUser 会「降级并返回离线模板文本」而不是抛异常。
+            // 那段文本里没有 JSON，extractJson 会退化成返回 "{}"，
+            // 若直接存库就会出现「画像已生成但内容全空」的现象（前端显示空白卡片）。
+            if (portrait.isEmpty() || portrait.get("summary") == null) {
+                Map<String, Object> fallback = buildFallbackPortrait(profile);
+                savePortrait(profile, fallback);
+                return fallback;
+            }
 
+            savePortrait(profile, portrait);
             return portrait;
         } catch (Exception e) {
-            // AI调用失败时返回模拟画像
-            return buildFallbackPortrait(profile);
+            // AI 调用异常时同样返回兜底画像
+            Map<String, Object> fallback = buildFallbackPortrait(profile);
+            savePortrait(profile, fallback);
+            return fallback;
+        }
+    }
+
+    /** 保存画像；失败不影响本次返回，用户至少能看到内容 */
+    private void savePortrait(StudentProfile profile, Map<String, Object> portrait) {
+        try {
+            profile.setAiPortrait(objectMapper.writeValueAsString(portrait));
+            profileMapper.updateById(profile);
+        } catch (Exception ignored) {
+            // 落库失败时不阻断返回
         }
     }
 
