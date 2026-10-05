@@ -120,7 +120,13 @@ public class FourYearPlanServiceImpl implements FourYearPlanService {
         sb.append("专业：").append(resolveMajorName(p.getMajorId())).append("\n");
         sb.append("年级：").append(p.getGrade()).append("\n");
         sb.append("成绩：").append(p.getGpa()).append("\n");
-        sb.append("编程基础：").append(p.getProgrammingLevel()).append("\n");
+        // 非计算机专业不要输出编程相关字段，否则会误导规划方向
+        if (p.getSkillAssessment() != null && !p.getSkillAssessment().trim().isEmpty()) {
+            sb.append("说明：该生为").append(resolveMajorName(p.getMajorId()))
+              .append("专业，非计算机方向，请按该专业的特点给出规划。\n");
+        } else {
+            sb.append("编程基础：").append(p.getProgrammingLevel()).append("\n");
+        }
         sb.append("英语水平：").append(p.getEnglishLevel()).append("\n");
         sb.append("兴趣：").append(p.getInterests()).append("\n");
         sb.append("职业目标：").append(p.getCareerGoal()).append("\n");

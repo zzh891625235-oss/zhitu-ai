@@ -92,8 +92,14 @@ public class ResumeServiceImpl implements ResumeService {
         sb.append("学校:").append(p.getSchool())
           .append(" 专业:").append(resolveMajorName(p.getMajorId()))
           .append(" 年级:").append(p.getGrade()).append("\n");
-        sb.append("编程:").append(p.getProgrammingLevel()).append(" Java:").append(p.getJavaLevel())
-          .append(" Python:").append(p.getPythonLevel()).append(" 英语:").append(p.getEnglishLevel()).append("\n");
+        // 非计算机专业不要写「编程/Java/Python」这些字段，否则简历会跑偏
+        if (p.getSkillAssessment() != null && !p.getSkillAssessment().trim().isEmpty()) {
+            sb.append("专业方向：").append(resolveMajorName(p.getMajorId())).append("（非计算机方向）\n");
+            sb.append("英语:").append(p.getEnglishLevel()).append("\n");
+        } else {
+            sb.append("编程:").append(p.getProgrammingLevel()).append(" Java:").append(p.getJavaLevel())
+              .append(" Python:").append(p.getPythonLevel()).append(" 英语:").append(p.getEnglishLevel()).append("\n");
+        }
         sb.append("兴趣:").append(p.getInterests()).append(" 目标:").append(p.getCareerGoal()).append("\n");
         if (!lr.isEmpty()) {
             sb.append("学习记录:").append(lr.size()).append("条\n");

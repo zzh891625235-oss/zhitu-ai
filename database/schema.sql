@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS student_profile (
     english_level VARCHAR(20),
     interests TEXT COMMENT 'JSON 数组字符串',
     career_goal VARCHAR(50),
+    skill_assessment TEXT COMMENT '非计算机专业的能力自评 JSON：{template,items:[{label,value}]}',
     ai_portrait JSON COMMENT 'AI 生成的学生画像',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -330,6 +331,7 @@ CALL zhitu_sync_column('student_profile', 'ai_level', 'VARCHAR(20)');
 CALL zhitu_sync_column('student_profile', 'english_level', 'VARCHAR(20)');
 CALL zhitu_sync_column('student_profile', 'interests', 'TEXT');
 CALL zhitu_sync_column('student_profile', 'career_goal', 'VARCHAR(50)');
+CALL zhitu_sync_column('student_profile', 'skill_assessment', 'TEXT');
 CALL zhitu_sync_column('student_profile', 'ai_portrait', 'JSON');
 CALL zhitu_sync_column('student_profile', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
 CALL zhitu_sync_column('student_profile', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');

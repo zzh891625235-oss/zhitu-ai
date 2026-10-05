@@ -122,15 +122,23 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         sb.append("专业：").append(resolveMajorName(p.getMajorId())).append("\n");
         sb.append("年级：").append(p.getGrade()).append("\n");
         sb.append("成绩水平：").append(p.getGpa()).append("\n");
-        sb.append("编程基础：").append(p.getProgrammingLevel()).append("\n");
-        sb.append("Java基础：").append(p.getJavaLevel()).append("\n");
-        sb.append("Python基础：").append(p.getPythonLevel()).append("\n");
-        sb.append("C/C++基础：").append(p.getCppLevel()).append("\n");
-        sb.append("数据结构：").append(p.getDsLevel()).append("\n");
-        sb.append("数据库基础：").append(p.getDbLevel()).append("\n");
-        sb.append("Web开发：").append(p.getWebLevel()).append("\n");
-        sb.append("AI基础：").append(p.getAiLevel()).append("\n");
-        sb.append("英语水平：").append(p.getEnglishLevel()).append("\n");
+        // 能力自评：计算机/电子信息专业用那 9 个编程字段，
+        // 其它专业用 skillAssessment 里保存的通用能力项。
+        // 否则会给临床医学的学生塞一堆「Java基础」「数据结构」，纯属噪声。
+        String skillText = describeSkillAssessment(p.getSkillAssessment());
+        if (skillText != null) {
+            sb.append("专业能力自评：\n").append(skillText);
+        } else {
+            sb.append("编程基础：").append(p.getProgrammingLevel()).append("\n");
+            sb.append("Java基础：").append(p.getJavaLevel()).append("\n");
+            sb.append("Python基础：").append(p.getPythonLevel()).append("\n");
+            sb.append("C/C++基础：").append(p.getCppLevel()).append("\n");
+            sb.append("数据结构：").append(p.getDsLevel()).append("\n");
+            sb.append("数据库基础：").append(p.getDbLevel()).append("\n");
+            sb.append("Web开发：").append(p.getWebLevel()).append("\n");
+            sb.append("AI基础：").append(p.getAiLevel()).append("\n");
+            sb.append("英语水平：").append(p.getEnglishLevel()).append("\n");
+        }
         sb.append("兴趣方向：").append(p.getInterests()).append("\n");
         sb.append("职业目标：").append(p.getCareerGoal()).append("\n");
         sb.append("\n请基于以上信息生成学生画像JSON。");
@@ -187,6 +195,51 @@ public class StudentProfileServiceImpl implements StudentProfileService {
             case "INTERMEDIATE": return 65;
             case "BASIC": return 45;
             case "BEGINNER": default: return 25;
+        }
+    }
+
+    /**
+     * 把非计算机专业的 skillAssessment JSON 转成提示词文本。
+     * 解析失败或没有配置时返回 null，调用方会回退到那 9 个编程字段。
+     */
+    private String describeSkillAssessment(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            Map<String, Object> root = objectMapper.readValue(json,
+                new TypeReference<Map<String, Object>>() {});
+            Object items = root.get("items");
+            if (!(items instanceof List) || ((List<?>) items).isEmpty()) {
+                return null;
+            }
+            StringBuilder sb = new StringBuilder();
+            Object template = root.get("template");
+            if (template != null) {
+                sb.append("  （方向：").append(template).append("）\n");
+            }
+            for (Object item : (List<?>) items) {
+                if (!(item instanceof Map)) continue;
+                Map<?, ?> row = (Map<?, ?>) item;
+                sb.append("  ").append(row.get("label"))
+                  .append("：").append(levelToLabel(String.valueOf(row.get("value"))))
+                  .append("\n");
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 把等级代码转成中文，让提示词更自然 */
+    private String levelToLabel(String level) {
+        if (level == null || "null".equals(level)) return "未评估";
+        switch (level) {
+            case "ADVANCED": return "熟练";
+            case "INTERMEDIATE": return "中等";
+            case "BASIC": return "入门";
+            case "BEGINNER": return "零基础";
+            default: return level;
         }
     }
 

@@ -25,6 +25,11 @@ public class StudentProfile {
     private String englishLevel;
     private String interests;
     private String careerGoal;
+    /**
+     * 非计算机专业的能力自评 JSON：{"template":"医学类","items":[{"label":"药理学","value":"BASIC"}]}
+     * 计算机 / 电子信息方向不使用该字段，仍走上面那 9 个 level 字段。
+     */
+    private String skillAssessment;
     private String aiPortrait;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

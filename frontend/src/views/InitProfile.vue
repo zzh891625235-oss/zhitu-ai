@@ -46,12 +46,23 @@
 
       <div v-if="activeStep===1" class="step-body">
         <p class="step-hint">诚实评估就行，零基础也没关系，AI会根据你的起点定制路线</p>
-        <div class="skills"><div class="sk" v-for="it in skillItems" :key="it.key"><span class="sk-lbl">{{it.emoji}} {{it.label}}</span><el-radio-group v-model="form[it.key]" size="small"><el-radio-button value="BEGINNER">零基础</el-radio-button><el-radio-button value="BASIC">入门</el-radio-button><el-radio-button value="INTERMEDIATE">中等</el-radio-button><el-radio-button value="ADVANCED">熟练</el-radio-button></el-radio-group></div></div>
+        <div class="skill-scope" v-if="currentTemplate">
+          <el-icon><InfoFilled /></el-icon>
+          <span>当前按「<b>{{ majorNameOf(form.majorId) || '未选择专业' }}</b>」匹配到 <b>{{ currentTemplate.name }}</b> 能力项，更换专业会自动切换</span>
+        </div>
+        <div class="skills">
+          <div class="sk" v-for="it in currentTemplate.skills" :key="it.key">
+            <span class="sk-lbl">{{ it.emoji }} {{ it.label }}</span>
+            <el-radio-group v-model="skillValues[it.key]" size="small">
+              <el-radio-button v-for="lv in LEVEL_OPTIONS" :key="lv.value" :value="lv.value">{{ lv.label }}</el-radio-button>
+            </el-radio-group>
+          </div>
+        </div>
       </div>
 
       <div v-if="activeStep===2" class="step-body">
         <p class="step-hint">选择你感兴趣的方向，AI会据此推荐学习路线和竞赛</p>
-        <el-checkbox-group v-model="form.interests" class="interests"><el-checkbox v-for="it in interestOptions" :key="it" :label="it" :value="it" border/></el-checkbox-group>
+        <el-checkbox-group v-model="form.interests" class="interests"><el-checkbox v-for="it in currentTemplate.interests" :key="it" :label="it" :value="it" border/></el-checkbox-group>
       </div>
 
       <div v-if="activeStep===3" class="step-body">
@@ -69,15 +80,26 @@
 </template>
 
 <script setup>
-import { ref,reactive,onMounted } from 'vue'; import { useRouter,useRoute } from 'vue-router'; import { ElMessage } from 'element-plus'; import { Check } from '@element-plus/icons-vue'; import { saveProfileApi,generatePortraitApi,getProfileApi } from '../api/profile'; import { getMajorsApi } from '../api/major'; import { universities } from '../data/universities'
+import { ref,reactive,computed,watch,onMounted } from 'vue'; import { useRouter,useRoute } from 'vue-router'; import { ElMessage } from 'element-plus'; import { Check,InfoFilled } from '@element-plus/icons-vue'; import { saveProfileApi,generatePortraitApi,getProfileApi } from '../api/profile'; import { getMajorsApi } from '../api/major'; import { universities } from '../data/universities'; import { resolveSkillTemplate,LEVEL_OPTIONS } from '../data/skillTemplates'
 const router=useRouter(); const route=useRoute(); const activeStep=ref(0); const submitting=ref(false); const isEdit=ref(false); const schoolLoading=ref(false); const schoolOptions=ref(universities.slice(0,80))
 const majorOptions=ref([]); const majorLoading=ref(false)
 const steps=[{title:'基础信息',desc:'学校与专业'},{title:'学习情况',desc:'能力评估'},{title:'兴趣方向',desc:'个性化推荐'},{title:'未来目标',desc:'路线规划'}]
-const skillItems=[{key:'programmingLevel',label:'编程基础',emoji:'💻'},{key:'javaLevel',label:'Java基础',emoji:'☕'},{key:'pythonLevel',label:'Python基础',emoji:'🐍'},{key:'cppLevel',label:'C/C++基础',emoji:'⚡'},{key:'dsLevel',label:'数据结构',emoji:'🔗'},{key:'dbLevel',label:'数据库',emoji:'🗄'},{key:'webLevel',label:'Web开发',emoji:'🌐'},{key:'aiLevel',label:'AI基础',emoji:'🤖'},{key:'englishLevel',label:'英语水平',emoji:'📖'}]
-const interestOptions=['Web开发','AI/机器学习','大数据','Java后端','Python','算法/ACM','前端开发','后端开发','数据分析','计算机视觉','NLP','网络安全','云计算','嵌入式','游戏开发']
+const form=reactive({school:'',majorId:'',grade:'',gpa:'',interests:[],careerGoal:''})
+// 能力自评项与兴趣方向都随专业变化：
+// 计算机/电子信息方向沿用数据库已有的 9 个字段（保持历史数据兼容），
+// 其它方向使用通用模板，结果打包成 JSON 存进 skillAssessment 字段。
+const skillValues=reactive({})
+const currentTemplate=computed(()=>resolveSkillTemplate(majorNameOf(form.majorId)))
+function majorNameOf(id){const m=majorOptions.value.find(x=>x.id===id);return m?m.name:''}
+function resetSkillValues(source){
+  const tpl=currentTemplate.value
+  Object.keys(skillValues).forEach(k=>delete skillValues[k])
+  tpl.skills.forEach(s=>{skillValues[s.key]=(source&&source[s.key])||'BEGINNER'})
+}
+// 换专业时清空已选项，避免把「Java基础」的评分带到「药理学」上
+watch(()=>currentTemplate.value.id,(n,o)=>{if(o&&n!==o){resetSkillValues();form.interests=[]}})
 const goals=[{value:'就业',label:'就业',icon:'💼',desc:'进入企业'},{value:'考研',label:'考研',icon:'📚',desc:'继续深造'},{value:'保研',label:'保研',icon:'⭐',desc:'推免读研'},{value:'考公',label:'考公',icon:'🏛',desc:'公务员'},{value:'创业',label:'创业',icon:'🚀',desc:'自主创业'},{value:'暂未确定',label:'暂未确定',icon:'🤔',desc:'先探索'}]
 const grades=['大一','大二','大三','大四','研一','研二','研三']
-const form=reactive({school:'',majorId:'',grade:'',gpa:'',programmingLevel:'BEGINNER',javaLevel:'BEGINNER',pythonLevel:'BEGINNER',cppLevel:'BEGINNER',dsLevel:'BEGINNER',dbLevel:'BEGINNER',webLevel:'BEGINNER',aiLevel:'BEGINNER',englishLevel:'BEGINNER',interests:[],careerGoal:''})
 const r1={school:[{required:true,message:'请选择学校',trigger:'change'}],majorId:[{required:true,message:'请选择专业',trigger:'change'}]}
 
 // 专业列表统一由后端 major 表提供（175 个专业，按学科门类排序），
@@ -102,22 +124,34 @@ function searchSchool(q){
 }
 
 onMounted(async()=>{
-  loadMajors()
+  // 必须先拿到专业列表，才能确定该用哪一套能力自评项
+  await loadMajors()
   try{
     const res=await getProfileApi()
-    if(res.data){
+    const data=res.data
+    if(data){
       isEdit.value=true
       Object.assign(form,{
-        school:res.data.school||'',majorId:res.data.majorId||'',grade:res.data.grade||'',gpa:res.data.gpa||'',
-        programmingLevel:res.data.programmingLevel||'BEGINNER',javaLevel:res.data.javaLevel||'BEGINNER',
-        pythonLevel:res.data.pythonLevel||'BEGINNER',cppLevel:res.data.cppLevel||'BEGINNER',
-        dsLevel:res.data.dsLevel||'BEGINNER',dbLevel:res.data.dbLevel||'BEGINNER',
-        webLevel:res.data.webLevel||'BEGINNER',aiLevel:res.data.aiLevel||'BEGINNER',
-        englishLevel:res.data.englishLevel||'BEGINNER',
-        interests:res.data.interests?JSON.parse(res.data.interests):[],careerGoal:res.data.careerGoal||''
+        school:data.school||'',majorId:data.majorId||'',grade:data.grade||'',gpa:data.gpa||'',
+        interests:data.interests?JSON.parse(data.interests):[],careerGoal:data.careerGoal||''
       })
+      // 计算机/电子信息方向：评分就在 student_profile 的那 9 个字段上
+      resetSkillValues(data)
+      // 其它方向：评分打包在 skillAssessment 里，按标签回填
+      if(data.skillAssessment){
+        try{
+          const saved=JSON.parse(data.skillAssessment)
+          const byLabel={}
+          ;(saved.items||[]).forEach(i=>{byLabel[i.label]=i.value})
+          currentTemplate.value.skills.forEach(s=>{if(byLabel[s.label])skillValues[s.key]=byLabel[s.label]})
+        }catch(e){}
+      }
+    }else{
+      resetSkillValues()
     }
-  }catch(e){}
+  }catch(e){
+    resetSkillValues()
+  }
 })
 
 function nextStep(){if(activeStep.value===0){if(!form.school||!form.majorId||!form.grade){ElMessage.warning('请完善基础信息');return}}activeStep.value++}
@@ -126,7 +160,19 @@ async function handleSubmit(){
   if(!form.careerGoal){ElMessage.warning('请选择你的未来目标');return}
   submitting.value=true
   try{
-    await saveProfileApi({school:form.school,majorId:form.majorId,grade:form.grade,gpa:form.gpa,programmingLevel:form.programmingLevel,javaLevel:form.javaLevel,pythonLevel:form.pythonLevel,cppLevel:form.cppLevel,dsLevel:form.dsLevel,dbLevel:form.dbLevel,webLevel:form.webLevel,aiLevel:form.aiLevel,englishLevel:form.englishLevel,interests:JSON.stringify(form.interests),careerGoal:form.careerGoal})
+    const tpl=currentTemplate.value
+    const payload={school:form.school,majorId:form.majorId,grade:form.grade,gpa:form.gpa,interests:JSON.stringify(form.interests),careerGoal:form.careerGoal}
+    if(tpl.isIT){
+      // 计算机/电子信息方向：沿用数据库已有的 9 个字段
+      Object.assign(payload,skillValues)
+    }else{
+      // 其它方向：把自评项打包成 JSON，标签一起存下来，便于回显与 AI 理解
+      payload.skillAssessment=JSON.stringify({
+        template:tpl.name,
+        items:tpl.skills.map(s=>({label:s.label,value:skillValues[s.key]||'BEGINNER'}))
+      })
+    }
+    await saveProfileApi(payload)
     await generatePortraitApi()
     ElMessage.success(isEdit.value?'档案已更新，AI重新生成了画像':'AI画像生成完成')
     setTimeout(()=>router.push('/home'),500)
@@ -155,6 +201,8 @@ async function handleSubmit(){
 .gr{padding:10px 4px;border-radius:8px;text-align:center;border:1px solid var(--border);cursor:pointer;transition:all var(--transition);font-size:13px;color:var(--mist)}
 .gr:hover{border-color:rgba(255,255,255,.15);color:#fff}
 .gr.picked{border-color:#8BC34A;background:rgba(139,195,74,.1);color:#8BC34A}
+.skill-scope{display:flex;align-items:center;gap:8px;margin-bottom:18px;padding:10px 14px;border-radius:8px;font-size:12.5px;line-height:1.55;color:var(--mist);background:rgba(139,195,74,.07);border:1px solid rgba(139,195,74,.16)}
+.skill-scope b{color:var(--signal);font-weight:600}
 .skills{display:flex;flex-direction:column;gap:12px}
 .sk{display:flex;align-items:center;justify-content:space-between}
 .sk-lbl{width:105px;font-size:13px;color:var(--mist);flex-shrink:0}
