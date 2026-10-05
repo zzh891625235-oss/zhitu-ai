@@ -80,20 +80,36 @@ if not defined DB_PASSWORD set DB_PASSWORD=123456
 REM ============================================================
 REM  3. 检查服务端口是否已被占用
 REM ============================================================
+set PORT_BUSY=0
+
 netstat -ano | findstr ":8080 " | findstr "LISTENING" >nul 2>nul
 if not errorlevel 1 (
     echo.
-    echo   [提示] 8080 端口已被占用，后端可能已经在运行。
-    choice /c YN /m "   是否仍然继续启动"
-    if errorlevel 2 goto :finish
+    echo   [警告] 8080 端口已被占用，后端可能已经在运行。
+    set PORT_BUSY=1
 )
 
 netstat -ano | findstr ":3000 " | findstr "LISTENING" >nul 2>nul
 if not errorlevel 1 (
     echo.
-    echo   [提示] 3000 端口已被占用，前端可能已经在运行。
-    choice /c YN /m "   是否仍然继续启动"
-    if errorlevel 2 goto :finish
+    echo   [警告] 3000 端口已被占用，前端可能已经在运行。
+    set PORT_BUSY=1
+)
+
+if "%PORT_BUSY%"=="1" (
+    if /i not "%~1"=="force" (
+        echo.
+        echo   请先停止正在运行的服务，二选一：
+        echo     1^) 关闭标题为「智途AI 后端」「智途AI 前端」的窗口
+        echo     2^) 直接双击项目根目录的 stop.bat
+        echo.
+        echo   确认要再启动一份的话，请执行:  start.bat force
+        echo.
+        pause
+        exit /b 1
+    )
+    echo.
+    echo   [force] 已忽略端口占用，继续启动。
 )
 
 REM ============================================================
@@ -130,7 +146,11 @@ REM  5. 启动后端与前端（各开一个新窗口）
 REM ============================================================
 echo.
 echo   正在启动后端（新窗口）...
-start "智途AI 后端" /D "%~dp0backend" cmd /k "set DB_PORT=%DB_PORT% && set DB_PASSWORD=%DB_PASSWORD% && mvn spring-boot:run"
+REM 注意：不要把 set 写进下面的 cmd /k 里。
+REM cmd 的 "set X=v && cmd" 会把 && 前的空格一起算进变量值，
+REM 导致密码实际变成 "123456 "（带尾随空格）而认证失败。
+REM start 创建的新窗口会继承本脚本的环境变量，因此这里直接启动即可。
+start "智途AI 后端" /D "%~dp0backend" cmd /k "mvn spring-boot:run"
 
 timeout /t 3 /nobreak >nul
 
