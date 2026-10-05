@@ -110,7 +110,7 @@ function handlePrint() { window.print() }
 
 <style scoped>
 .resume-page { max-width: 900px; margin: 0 auto; }
-.page-hero { text-align: center; padding: 36px 0 24px; }
+.page-hero { text-align: center; padding: 36px 0 20px; }
 .page-hero h1 { font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .page-hero p { color: var(--text-secondary); margin-top: 6px; font-size: 14px; }
 
@@ -120,7 +120,7 @@ function handlePrint() { window.print() }
 
 /* A4纸 */
 .resume-paper {
-  max-width: 800px; margin: 0 auto; background: #fff;
+  max-width: 800px; margin: 0 auto; background:var(--glass);
   padding: 48px 52px; border-radius: 4px;
   box-shadow: 0 4px 30px rgba(0,0,0,.1);
 }
@@ -138,13 +138,20 @@ function handlePrint() { window.print() }
 
 .skill-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .skill-tag {
-  padding: 4px 14px; border-radius: 20px; background: rgba(108,92,231,.08);
+  padding: 4px 14px; border-radius: 20px; background: rgba(139,195,74,.08);
   font-size: 13px; color: var(--primary); font-weight: 500;
 }
-.skill-tag.course { background: rgba(0,206,201,.08); color: #008F8B; }
+.skill-tag.course { background: rgba(77,208,196,.10); color: #4DD0C4; }
 
 .paper-item { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
 .item-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
-.item-dot.comp { background: #FECA57; }
-.item-dot.cert { background: #00D2A0; }
+.item-dot.comp { background: var(--amber); }
+.item-dot.cert { background: #66BB6A; }
+
+@media (max-width:820px) {
+  .resume-paper { padding: 26px 20px; }
+  .paper-header h1 { font-size: 21px; }
+  .paper-contact { flex-wrap: wrap; gap: 10px; }
+  .resume-toolbar { flex-wrap: wrap; }
+}
 </style>

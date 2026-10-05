@@ -48,7 +48,7 @@ public class UserServiceImpl implements UserService {
         if (!PasswordUtils.matches(request.getPassword(), user.getPassword())) {
             throw new BusinessException(401, "手机号或密码错误");
         }
-        String token = jwtUtils.generateToken(user.getId(), user.getPhone());
+        String token = jwtUtils.generateToken(user.getId(), user.getPhone(), user.getRole());
         return new LoginResponse(token, user.getId(), user.getNickname(), user.getRole());
     }
 

@@ -2,7 +2,13 @@
   <div class="courses-page">
     <div class="page-hero">
       <h1><el-icon><Reading /></el-icon> 专业知识地图</h1>
-      <p>计算机科学与技术 · 完整学习路线</p>
+      <p>{{ majorName || '我的专业' }} · 完整学习路线</p>
+    </div>
+
+    <!-- 该专业课程尚未覆盖时的说明，避免用户看到空白页 -->
+    <div class="major-notice" v-if="fallbackNotice">
+      <el-icon><InfoFilled /></el-icon>
+      <span>「{{ majorName }}」的专业学习地图正在建设中，先为你展示计算机方向的核心课程。</span>
     </div>
 
     <!-- 统计条 -->
@@ -33,7 +39,7 @@
 
         <div class="course-node" v-for="(course, idx) in courses" :key="course.id"
           :class="[statusClass(course), 'pos-' + (idx % 2)]"
-          :style="{ top: ((idx / (courses.length - 1)) * 100) + '%' }">
+          :style="{ top: (courses.length > 1 ? (idx / (courses.length - 1)) * 100 : 0) + '%' }">
           <!-- 连接点 -->
           <div class="node-connector" :class="statusClass(course)"></div>
 
@@ -89,14 +95,17 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Reading } from '@element-plus/icons-vue'
+import { Reading, InfoFilled } from '@element-plus/icons-vue'
 import { getCoursesApi, updateProgressApi } from '../api/course'
+import { getProfileApi } from '../api/profile'
 import { ElMessage } from 'element-plus'
 
 const courses = ref([])
 const dialogVisible = ref(false)
 const selectedCourse = ref(null)
 const sliderProgress = ref(0)
+const majorName = ref('')
+const fallbackNotice = ref(false)
 
 const completedCount = computed(() => courses.value.filter(c => c.progress >= 100).length)
 const inProgressCount = computed(() => courses.value.filter(c => c.progress > 0 && c.progress < 100).length)
@@ -125,14 +134,32 @@ function diffLabel(d) {
   return '高级'
 }
 function progressColor(c) {
-  if (c.progress >= 100) return '#00D2A0'
-  if (c.progress > 0) return '#6C5CE7'
-  return '#E8ECF1'
+  if (c.progress >= 100) return '#66BB6A'
+  if (c.progress > 0) return 'var(--signal)'
+  return 'rgba(255,255,255,.18)'
 }
 
 onMounted(async () => {
+  // 读取学生档案，按学生真实专业加载对应课程；未初始化档案时回退到计算机方向
+  let majorId = 1
   try {
-    courses.value = (await getCoursesApi(1)).data
+    const profile = (await getProfileApi()).data
+    if (profile?.majorId) {
+      majorId = profile.majorId
+      majorName.value = profile.majorName || ''
+    }
+  } catch (e) {
+    // 档案尚未初始化，使用默认专业
+  }
+
+  try {
+    let list = (await getCoursesApi(majorId)).data || []
+    if (!list.length && majorId !== 1) {
+      // 该专业的课程数据尚未录入，先展示计算机方向的核心课程，并明确告知用户
+      list = (await getCoursesApi(1)).data || []
+      fallbackNotice.value = true
+    }
+    courses.value = list
   } catch (e) {
     ElMessage.error('加载课程失败')
   }
@@ -162,11 +189,17 @@ async function handleProgressChange(val) {
 <style scoped>
 .courses-page { max-width: 1100px; margin: 0 auto; }
 
-.page-hero { text-align: center; padding: 36px 0 24px; }
+.page-hero { text-align: center; padding: 36px 0 20px; }
 .page-hero h1 { font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .page-hero p { color: var(--text-secondary); margin-top: 6px; font-size: 14px; }
 
 .stats-bar { display: flex; justify-content: center; gap: 32px; margin-bottom: 40px; }
+.major-notice {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  max-width: 640px; margin: 0 auto 28px; padding: 12px 18px;
+  border-radius: var(--radius); font-size: 13px; color: #F5C97A;
+  background: rgba(245,165,36,.10); border: 1px solid rgba(245,165,36,.22);
+}
 .stat-mini { text-align: center; }
 .stat-num { display: block; font-size: 26px; font-weight: 700; color: var(--text); }
 .stat-mini.accent .stat-num { color: var(--primary); }
@@ -183,7 +216,7 @@ async function handleProgressChange(val) {
 .track-progress {
   position: absolute; left: 50%; top: 0;
   width: 3px; transform: translateX(-50%); border-radius: 2px;
-  background: linear-gradient(to bottom, var(--primary), var(--accent));
+  background: linear-gradient(to bottom, var(--primary), #A855F7);
   transition: height .6s cubic-bezier(.4,0,.2,1);
 }
 
@@ -194,23 +227,23 @@ async function handleProgressChange(val) {
 /* 连接点 */
 .node-connector {
   position: absolute; top: 28px; width: 14px; height: 14px; border-radius: 50%;
-  border: 3px solid var(--border); background: #fff; z-index: 2;
+  border: 3px solid var(--border); background:var(--glass); z-index: 2;
   transition: all var(--transition);
 }
 .pos-0 .node-connector { right: -8px; }
 .pos-1 .node-connector { left: -8px; }
 .node-connector.completed { background: var(--success); border-color: var(--success); box-shadow: 0 0 0 4px rgba(0,210,160,.2); }
-.node-connector.in-progress { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 4px rgba(108,92,231,.2); }
+.node-connector.in-progress { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 4px rgba(139,195,74,.2); }
 
 /* 课程卡片 */
 .node-card {
-  background: #fff; border-radius: var(--radius); padding: 18px 20px;
+  background:var(--glass); border-radius: var(--radius); padding: 18px 20px;
   border: 1.5px solid var(--border); cursor: pointer;
   transition: all var(--transition); position: relative; overflow: hidden;
 }
 .node-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .node-card.completed { border-color: rgba(0,210,160,.3); background: rgba(0,210,160,.02); }
-.node-card.in-progress { border-color: rgba(108,92,231,.3); background: rgba(108,92,231,.02); }
+.node-card.in-progress { border-color: rgba(139,195,74,.3); background: rgba(139,195,74,.02); }
 
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .pos-0 .card-top { flex-direction: row-reverse; }

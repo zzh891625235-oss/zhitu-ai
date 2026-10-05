@@ -1,275 +1,89 @@
 <template>
   <div class="dashboard">
-    <!-- 欢迎横幅 -->
-    <section class="hero-banner">
-      <div class="hero-glow"></div>
-      <div class="hero-content">
-        <div class="hero-left">
-          <div class="hero-greeting">
-            <span class="greeting-hand">👋</span>
-            <div>
-              <h1>你好，{{ userStore.userInfo?.nickname || '同学' }}</h1>
-              <p class="hero-sub">{{ greetingText }}</p>
-            </div>
-          </div>
-          <div class="hero-tags">
-            <span class="hero-tag" v-if="profile"><span class="tag-dot"></span>{{ profile.grade }} · {{ majorName }}</span>
-            <span class="hero-tag accent"><span class="tag-dot"></span>{{ portrait ? 'AI画像已生成' : '等待AI分析' }}</span>
-          </div>
-        </div>
-        <div class="hero-right">
-          <div class="score-ring" v-if="portrait?.scores">
-            <svg viewBox="0 0 120 120" class="ring-svg">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="8"/>
-              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="8" stroke-linecap="round"
-                :stroke-dasharray="2 * Math.PI * 52"
-                :stroke-dashoffset="2 * Math.PI * 52 * (1 - overallScore / 100)"
-                transform="rotate(-90 60 60)" class="ring-progress"/>
-            </svg>
-            <div class="ring-text"><span class="ring-score">{{ overallScore }}</span><span class="ring-label">综合分</span></div>
-          </div>
-        </div>
+    <section class="welcome">
+      <div class="wl-left">
+        <p class="wl-greet">{{ greetingText }}</p>
+        <h1>{{ userStore.userInfo?.nickname||'同学' }}</h1>
+        <p class="wl-desc" v-if="portrait">{{ portrait.summary?.substring(0,90) }}</p>
+        <p class="wl-desc" v-else>完成档案初始化，让AI为你生成专属大学四年成长规划</p>
+        <div class="wl-meta" v-if="profile"><span>{{ profile.grade }}</span><span class="wl-sep"></span><span>{{ majorName }}</span><span class="wl-sep"></span><span class="wl-st">{{ portrait?'AI画像已生成':'等待初始化' }}</span></div>
+        <el-button v-if="!portrait" type="primary" @click="$router.push('/init')" style="margin-top:16px">开始AI档案初始化</el-button>
+      </div>
+      <div class="wl-right" v-if="portrait?.scores">
+        <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.04)" stroke-width="6"/><circle cx="60" cy="60" r="52" fill="none" stroke="#8BC34A" stroke-width="6" stroke-linecap="round" :stroke-dasharray="2*Math.PI*52" :stroke-dashoffset="2*Math.PI*52*(1-overall/100)" transform="rotate(-90 60 60)" class="ring-fill"/></svg><div class="ring-c"><span class="ring-n">{{ overall }}</span><span class="ring-l">综合分</span></div></div>
       </div>
     </section>
 
-    <!-- AI成长闭环 -->
-    <section class="flow-section">
-      <h3 class="section-h">🔄 AI成长闭环</h3>
-      <div class="flow-chain">
-        <div class="flow-node done"><div class="fn-icon">📋</div><span>学生数据</span></div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-node" :class="{ done: portrait }"><div class="fn-icon">🧠</div><span>AI画像</span></div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-node" :class="{ done: hasPlan }"><div class="fn-icon">🎯</div><span>AI规划</span></div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-node" :class="{ done: hasRecords }"><div class="fn-icon">✏️</div><span>学习执行</span></div>
-        <div class="flow-arrow">→</div>
-        <div class="flow-node" :class="{ done: hasRecords }"><div class="fn-icon">📊</div><span>AI分析</span></div>
-        <div class="flow-arrow curved">↻</div>
-        <div class="flow-node restart" :class="{ done: hasRecords }"><div class="fn-icon">🔄</div><span>动态调整</span></div>
-      </div>
-      <div class="flow-bar"><div class="flow-fill" :style="{ width: flowProgress + '%' }"></div></div>
-      <p class="flow-tip">{{ flowTip }}</p>
+    <section class="loop" v-if="profile">
+      <div class="loop-track"><div class="ln" v-for="(n,i) in loopNodes" :key="i" :class="{done:i<=loopDone}" :style="{'--i':i}"><span class="ln-dot"></span><span class="ln-ico">{{ n.icon }}</span><span class="ln-lbl">{{ n.label }}</span></div></div>
+      <div class="loop-bar"><div class="loop-fill" :style="{width:loopPercent+'%'}"></div></div>
+      <p class="loop-hint">{{ loopHint }}</p>
     </section>
 
-    <!-- 统计 -->
-    <section class="stats-row">
-      <div class="stat-card" v-for="s in stats" :key="s.label" :style="{'--accent':s.color}">
-        <div class="stat-icon"><el-icon :size="22"><component :is="s.icon" /></el-icon></div>
-        <div class="stat-info"><span class="stat-value">{{ s.value }}</span><span class="stat-label">{{ s.label }}</span></div>
-      </div>
-    </section>
-
-    <!-- 主内容 -->
-    <div class="content-grid">
-      <el-card class="dash-card" shadow="never">
-        <template #header>
-          <div class="card-head"><div class="card-icon" style="background:rgba(108,92,231,.1);color:var(--primary)"><el-icon><MagicStick /></el-icon></div><span>AI学生画像</span></div>
-        </template>
-        <div v-if="portrait">
-          <p class="portrait-text">{{ portrait.summary }}</p>
-          <div class="trait-columns">
-            <div class="trait-col good"><div class="trait-title">✅ 优势</div><ul><li v-for="s in portrait.strengths" :key="s">{{ s }}</li></ul></div>
-            <div class="trait-col warn"><div class="trait-title">🎯 待提升</div><ul><li v-for="w in portrait.weaknesses" :key="w">{{ w }}</li></ul></div>
-          </div>
-        </div>
-        <el-empty v-else description="尚未生成"><el-button size="small" type="primary" @click="$router.push('/init')">去初始化</el-button></el-empty>
-      </el-card>
-
-      <el-card class="dash-card" shadow="never">
-        <template #header>
-          <div class="card-head"><div class="card-icon" style="background:rgba(0,206,201,.1);color:var(--accent)"><el-icon><Sunny /></el-icon></div><span>AI今日建议</span></div>
-        </template>
-        <div v-if="portrait?.suggestions" class="suggestions">
-          <div class="suggest-item" v-for="(sug,idx) in portrait.suggestions" :key="idx" :class="'p-'+idx">
-            <span class="sug-num">{{ idx+1 }}</span><span class="sug-text">{{ sug }}</span>
-          </div>
-        </div>
-        <el-empty v-else description="完成画像后获取" :image-size="60" />
-      </el-card>
-
-      <el-card class="dash-card" shadow="never">
-        <template #header>
-          <div class="card-head"><div class="card-icon" style="background:rgba(84,160,255,.1);color:var(--info)"><el-icon><TrendCharts /></el-icon></div><span>能力雷达图</span></div>
-        </template>
-        <div ref="radarChart" class="radar-container"></div>
-      </el-card>
-
-      <el-card class="dash-card" shadow="never">
-        <template #header>
-          <div class="card-head"><div class="card-icon" style="background:rgba(254,202,87,.15);color:var(--warning)"><el-icon><Calendar /></el-icon></div><span>快速入口</span></div>
-        </template>
-        <div class="quick-links">
-          <div class="qlink" @click="$router.push('/plan')"><span>🎯</span> 四年规划</div>
-          <div class="qlink" @click="$router.push('/courses')"><span>📖</span> 知识地图</div>
-          <div class="qlink" @click="$router.push('/competitions')"><span>🏆</span> 竞赛推荐</div>
-          <div class="qlink" @click="$router.push('/assistant')"><span>🤖</span> AI助手</div>
-          <div class="qlink" @click="$router.push('/growth')"><span>📊</span> 学习打卡</div>
-          <div class="qlink" @click="$router.push('/resume')"><span>📄</span> AI简历</div>
-        </div>
-      </el-card>
+    <div class="stats" v-if="profile">
+      <div class="st" v-for="s in stats" :key="s.label"><div class="st-ic" :style="{background:s.bg,color:s.color}"><el-icon :size="15"><component :is="s.icon"/></el-icon></div><div><span class="st-v">{{ s.value }}</span><span class="st-l">{{ s.label }}</span></div></div>
     </div>
+
+    <div class="grid" v-if="profile">
+      <div class="col">
+        <el-card shadow="never"><template #header><span class="ct">AI学生画像</span></template>
+          <div v-if="portrait"><p class="pt">{{ portrait.summary }}</p><div class="trs"><div class="tr good"><span class="tr-l">优势</span><span>{{ portrait.strengths?.join('、') }}</span></div><div class="tr warn"><span class="tr-l">待提升</span><span>{{ portrait.weaknesses?.join('、') }}</span></div></div></div>
+          <el-empty v-else description="完成档案初始化后自动生成" :image-size="60"><el-button type="primary" size="small" @click="$router.push('/init')">去初始化</el-button></el-empty>
+        </el-card>
+        <el-card shadow="never" style="margin-top:12px"><template #header><span class="ct">今日建议</span></template>
+          <div v-if="portrait?.suggestions?.length" class="suggs"><div class="sg" v-for="(s,i) in portrait.suggestions.slice(0,4)" :key="i"><span class="sg-n">{{i+1}}</span><span>{{s}}</span></div></div>
+          <el-empty v-else description="生成画像后获取建议" :image-size="50"/>
+        </el-card>
+      </div>
+      <div class="col">
+        <el-card shadow="never"><template #header><span class="ct">能力雷达</span></template><div ref="radarChart" class="radar-box"></div></el-card>
+        <el-card shadow="never" style="margin-top:12px"><template #header><span class="ct">快速入口</span></template>
+          <div class="qks"><div class="qk" v-for="q in quicks" :key="q.label" @click="$router.push(q.to)"><span class="qk-ic">{{q.icon}}</span><span>{{q.label}}</span></div></div>
+        </el-card>
+      </div>
+    </div>
+    <div v-else-if="profile===null" style="text-align:center;padding:60px 0;color:var(--fog)"><p>还没有成长档案</p><el-button type="primary" @click="$router.push('/init')" style="margin-top:12px">开始AI档案初始化</el-button></div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import { useUserStore } from '../stores/user'
-import { MagicStick, Sunny, TrendCharts, Calendar, UserFilled, Medal, Reading, TrophyBase, Timer } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
-import { getProfileApi, getPortraitApi } from '../api/profile'
-import { getPlanApi } from '../api/plan'
-import { getStudyPlanApi } from '../api/studyplan'
-
-const userStore = useUserStore()
-const radarChart = ref(null)
-const profile = ref(null)
-const portrait = ref(null)
-const hasPlan = ref(false)
-const hasRecords = ref(false)
-let chartInstance = null
-
-const majors = ['', '计算机科学与技术', '软件工程', '人工智能', '大数据', '电子信息工程']
-const majorName = computed(() => profile.value?.majorId ? majors[profile.value.majorId] || '' : '')
-const overallScore = computed(() => portrait.value?.scores?.overall || 0)
-
-const hours = new Date().getHours()
-const greetingText = computed(() => {
-  if (!portrait.value) return '完成AI档案初始化，获取专属成长规划'
-  const g = hours < 12 ? '早上好' : hours < 18 ? '下午好' : '晚上好'
-  return g + '！' + (portrait.value.summary?.substring(0, 40) || '你的大学成长路线已就绪') + '...'
-})
-
-const flowProgress = computed(() => {
-  let p = 20; // 学生数据 always done
-  if (portrait.value) p += 20;
-  if (hasPlan.value) p += 20;
-  if (hasRecords.value) p += 20;
-  return p;
-})
-const flowTip = computed(() => {
-  if (!portrait.value) return '完成档案初始化 → AI生成画像 → 开启四年规划'
-  if (!hasPlan.value) return '画像已生成！去「AI成长规划」页面生成你的四年规划'
-  if (!hasRecords.value) return '规划已就绪！开始每天学习打卡，AI会根据你的进度动态调整'
-  return '闭环运转中！AI持续分析你的学习数据，自动优化后续计划 ✨'
-})
-
-const stats = computed(() => [
-  { icon: Medal, value: overallScore.value + '分', label: '综合能力', color: '#6C5CE7' },
-  { icon: Reading, value: '12门', label: '推荐课程', color: '#00CEC9' },
-  { icon: TrophyBase, value: '6个', label: '推荐竞赛', color: '#FECA57' },
-  { icon: Timer, value: flowProgress.value + '%', label: '闭环完成', color: '#FF6B6B' },
-])
-
-onMounted(async () => {
-  try { profile.value = (await getProfileApi()).data } catch (e) {}
-  try { portrait.value = (await getPortraitApi()).data } catch (e) {}
-  try { await getPlanApi(); hasPlan.value = true } catch (e) {}
-  try { const p = (await getStudyPlanApi()).data; hasRecords.value = p.length > 0 } catch (e) {}
-  await nextTick(); renderRadar()
-})
-
-watch(portrait, async () => { await nextTick(); renderRadar() })
-
-function renderRadar() {
-  if (!radarChart.value) return
-  if (chartInstance) chartInstance.dispose()
-  chartInstance = echarts.init(radarChart.value)
-  const s = portrait.value?.scores || {}
-  chartInstance.setOption({
-    radar: {
-      indicator: [{name:'编程',max:100},{name:'算法',max:100},{name:'项目',max:100},{name:'竞赛',max:100},{name:'AI',max:100},{name:'英语',max:100}],
-      center: ['50%','52%'], radius: '72%', axisName: { color: '#636E72', fontSize: 12 },
-      splitArea: { areaStyle: { color: ['rgba(108,92,231,.02)','rgba(108,92,231,.04)'] } }
-    },
-    series: [{ type: 'radar', data: [{ value: [s.programming||30,s.algorithm||30,s.project||30,s.competition||30,s.ai||30,s.english||30], name:'当前', areaStyle:{color:'rgba(108,92,231,.3)'}, lineStyle:{color:'#6C5CE7',width:2.5}, itemStyle:{color:'#6C5CE7'} }] }]
-  })
-  window.addEventListener('resize', () => chartInstance?.resize())
-}
+import { ref,computed,onMounted,onUnmounted,nextTick,watch } from 'vue'; import { useUserStore } from '../stores/user'; import { Medal,Reading,TrophyBase,Timer } from '@element-plus/icons-vue'; import * as echarts from 'echarts/core'; import { RadarChart } from 'echarts/charts'; import { RadarComponent,TooltipComponent } from 'echarts/components'; import { CanvasRenderer } from 'echarts/renderers'; import { getProfileApi,getPortraitApi } from '../api/profile'; import { getPlanApi } from '../api/plan'; import { getStudyPlanApi } from '../api/studyplan'
+// 按需注册 ECharts 模块，避免把整个 echarts（约 1MB）打进首屏包
+echarts.use([RadarChart,RadarComponent,TooltipComponent,CanvasRenderer])
+const userStore=useUserStore(); const radarChart=ref(null); const profile=ref(null); const portrait=ref(null); const hasPlan=ref(false); const hasRecords=ref(false); let chartInstance=null
+const majorName=computed(()=>profile.value?.majorName||'')
+const overall=computed(()=>{const s=portrait.value?.scores;if(!s)return 0;const v=[s.programming,s.algorithm,s.project,s.competition,s.ai,s.english].filter(x=>x>0);return v.length?Math.round(v.reduce((a,b)=>a+b)/v.length):0})
+const h=new Date().getHours(); const greetingText=computed(()=>h<12?'早上好':h<18?'下午好':'晚上好')
+const loopNodes=[{icon:'📋',label:'学生数据'},{icon:'🧠',label:'AI画像'},{icon:'🎯',label:'AI规划'},{icon:'✏️',label:'学习执行'},{icon:'📊',label:'AI分析'},{icon:'🔄',label:'动态调整'}]
+const loopDone=computed(()=>{let d=0;if(profile.value)d=1;if(portrait.value)d=2;if(hasPlan.value)d=3;if(hasRecords.value)d=5;return d})
+const loopPercent=computed(()=>Math.min(100,(loopDone.value/5)*100))
+const loopHint=computed(()=>{if(!portrait.value)return '完成档案初始化，开启AI成长闭环';if(!hasPlan.value)return 'AI画像已生成 — 去生成你的四年规划';if(!hasRecords.value)return '规划就绪 — 开始打卡，AI动态调整';return '闭环运转中 — AI持续分析学习数据'})
+const stats=computed(()=>[{icon:Medal,value:overall.value+'分',label:'综合能力',bg:'rgba(139,195,74,.12)',color:'#8BC34A'},{icon:Reading,value:'12门',label:'推荐课程',bg:'rgba(102,187,106,.08)',color:'#66BB6A'},{icon:TrophyBase,value:'6个',label:'推荐竞赛',bg:'rgba(168,85,247,.12)',color:'#A855F7'},{icon:Timer,value:loopPercent.value+'%',label:'闭环完成',bg:'rgba(239,83,80,.08)',color:'#EF5350'}])
+const quicks=[{icon:'🎯',label:'四年规划',to:'/home/plan'},{icon:'📖',label:'知识地图',to:'/home/courses'},{icon:'🏆',label:'竞赛推荐',to:'/home/competitions'},{icon:'🤖',label:'AI助手',to:'/home/assistant'},{icon:'📊',label:'学习打卡',to:'/home/growth'},{icon:'📄',label:'AI简历',to:'/home/resume'}]
+onMounted(async()=>{try{profile.value=(await getProfileApi()).data}catch(e){}try{portrait.value=(await getPortraitApi()).data}catch(e){}try{await getPlanApi();hasPlan.value=true}catch(e){}try{const p=(await getStudyPlanApi()).data;hasRecords.value=p.length>0}catch(e){}await nextTick();renderRadar();window.addEventListener('resize',handleResize)})
+onUnmounted(()=>{window.removeEventListener('resize',handleResize);if(chartInstance){chartInstance.dispose();chartInstance=null}})
+watch(portrait,async()=>{await nextTick();renderRadar()})
+function handleResize(){chartInstance?.resize()}
+function renderRadar(){if(!radarChart.value)return;if(!chartInstance)chartInstance=echarts.init(radarChart.value);const s=portrait.value?.scores||{};chartInstance.setOption({radar:{indicator:[{name:'编程',max:100},{name:'算法',max:100},{name:'项目',max:100},{name:'竞赛',max:100},{name:'AI',max:100},{name:'英语',max:100}],center:['50%','52%'],radius:'65%',axisName:{color:'rgba(255,255,255,.3)',fontSize:12},splitArea:{areaStyle:{color:['rgba(139,195,74,.01)','rgba(139,195,74,.03)']}}},series:[{type:'radar',data:[{value:[s.programming||20,s.algorithm||20,s.project||20,s.competition||20,s.ai||20,s.english||20],areaStyle:{color:'rgba(139,195,74,.15)'},lineStyle:{color:'#8BC34A',width:2},itemStyle:{color:'#8BC34A'}}]}]},true)}
 </script>
 
 <style scoped>
-.dashboard { display: flex; flex-direction: column; gap: 20px; }
+.dashboard{display:flex;flex-direction:column;gap:24px}
+.welcome{display:flex;align-items:flex-start;justify-content:space-between;padding:8px 0 0}.wl-left{flex:1}.wl-greet{font-size:13px;color:var(--mist);font-weight:400;margin-bottom:4px}.wl-left h1{font-size:30px;font-weight:300;color:#fff;margin-bottom:8px;letter-spacing:.02em}.wl-desc{font-size:14px;color:var(--mist);max-width:500px;line-height:1.7;font-weight:300}.wl-meta{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--fog)}.wl-sep{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.08)}.wl-st{color:#66BB6A}
+.ring{position:relative;width:120px;height:120px;flex-shrink:0}.ring-fill{transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)}.ring-c{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}.ring-n{display:block;font-size:26px;font-weight:300;color:#8BC34A}.ring-l{display:block;font-size:10px;color:var(--fog);margin-top:2px;letter-spacing:.06em}
+.loop{background:var(--glass);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 32px 18px;backdrop-filter:blur(24px)}.loop-track{display:flex;align-items:center;justify-content:space-between}.ln{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.08);text-align:center;flex:1;opacity:0;animation:fadein .4s cubic-bezier(.22,.61,.36,1) forwards;animation-delay:calc(var(--i)*.12s)}.ln.done{color:#8BC34A}.ln-dot{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.08)}.ln.done .ln-dot{background:#8BC34A}.ln-ico{font-size:20px;filter:grayscale(1);opacity:.3;transition:all .4s}.ln.done .ln-ico{filter:grayscale(0);opacity:1}.ln-lbl{font-weight:400}.ln.done .ln-lbl{font-weight:500}.loop-bar{height:2px;background:rgba(255,255,255,.03);border-radius:1px;margin:14px 0 6px;overflow:hidden}.loop-fill{height:100%;border-radius:1px;background:#8BC34A;transition:width .8s cubic-bezier(.4,0,.2,1)}.loop-hint{text-align:center;font-size:11px;color:var(--fog);font-weight:300}@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.st{display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:var(--radius);background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(24px);transition:border-color .3s}.st:hover{border-color:rgba(255,255,255,.08)}.st-ic{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center}.st-v{display:block;font-size:16px;font-weight:500;color:#fff;line-height:1.2}.st-l{display:block;font-size:10px;color:var(--fog);margin-top:1px;letter-spacing:.04em}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;margin-bottom:32px}.ct{font-size:14px;font-weight:400;color:#fff;letter-spacing:.02em}.pt{font-size:13px;color:var(--mist);line-height:1.75;margin-bottom:14px;font-weight:300}.trs{display:flex;flex-direction:column;gap:8px}.tr{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:6px;font-size:12px}.tr.good{background:rgba(102,187,106,.08)}.tr.warn{background:rgba(239,83,80,.08)}.tr-l{font-weight:500;color:#fff;flex-shrink:0;min-width:32px}.tr span:last-child{color:var(--mist);line-height:1.6;font-weight:300}.suggs{display:flex;flex-direction:column;gap:6px}.sg{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:6px;font-size:12px;color:var(--mist);line-height:1.6;background:rgba(255,255,255,.02);font-weight:300}.sg-n{width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;background:#8BC34A;color:#fff;font-size:10px;font-weight:500;flex-shrink:0}.radar-box{width:100%;height:280px}.qks{display:grid;grid-template-columns:1fr 1fr;gap:6px}.qk{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12px;color:var(--mist);background:rgba(255,255,255,.015);border:1px solid rgba(255,255,255,.03);transition:all .3s;font-weight:300}.qk:hover{border-color:rgba(255,255,255,.1);color:#fff}.qk-ic{font-size:15px}
 
-.hero-banner {
-  position: relative; overflow: hidden;
-  background: linear-gradient(135deg, #6C5CE7 0%, #5A4BD1 40%, #4834D4 100%);
-  border-radius: var(--radius-xl); padding: 38px 44px; color: #fff;
+/* 移动端：统计卡两列，主内容单列堆叠 */
+@media (max-width:820px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .grid{grid-template-columns:1fr}
+  .welcome{flex-direction:column;gap:18px}
+  .wl-left h1{font-size:24px}
+  .ring{width:96px;height:96px}
+  .loop{padding:18px 16px 14px}
+  .ln-lbl{display:none}
+  .ln-ico{font-size:18px}
 }
-.hero-glow { position: absolute; top: -40%; right: -10%; width: 400px; height: 400px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.12), transparent); }
-.hero-content { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; }
-.hero-greeting { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
-.greeting-hand { font-size: 34px; animation: float 2s ease-in-out infinite; }
-.hero-left h1 { font-size: 26px; font-weight: 700; }
-.hero-sub { font-size: 14px; opacity: .85; max-width: 500px; }
-.hero-tags { display: flex; gap: 10px; }
-.hero-tag { display: inline-flex; align-items: center; gap: 8px; padding: 5px 14px; border-radius: 20px; background: rgba(255,255,255,.15); font-size: 13px; }
-.hero-tag.accent { background: rgba(85,239,196,.2); }
-.tag-dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; }
-.hero-tag.accent .tag-dot { background: var(--accent-light); }
-.ring-svg { width: 120px; height: 120px; }
-.ring-progress { transition: stroke-dashoffset 1.2s ease; }
-.ring-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
-.ring-score { display: block; font-size: 28px; font-weight: 800; }
-.ring-label { display: block; font-size: 11px; opacity: .7; }
-.hero-right { position: relative; }
-
-/* 闭环流程 */
-.flow-section { background: #fff; border-radius: var(--radius); padding: 24px 32px; border: 1px solid var(--border); }
-.section-h { font-size: 16px; font-weight: 700; margin-bottom: 16px; text-align: center; }
-.flow-chain { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-.flow-node {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 10px 14px; border-radius: var(--radius-sm); background: #F0F1F5;
-  font-size: 12px; color: var(--text-muted); min-width: 72px; transition: all .3s;
-}
-.flow-node.done { background: rgba(108,92,231,.08); color: var(--primary); }
-.flow-node.restart { border: 2px dashed var(--border); background: transparent; }
-.flow-node.restart.done { border-color: var(--accent); background: rgba(0,206,201,.05); color: var(--accent); }
-.fn-icon { font-size: 20px; }
-.flow-arrow { font-size: 18px; color: var(--primary); font-weight: 700; }
-.flow-arrow.curved { font-size: 22px; color: var(--accent); }
-.flow-bar { height: 6px; background: #F0F1F5; border-radius: 3px; margin-bottom: 6px; }
-.flow-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 3px; transition: width .6s ease; }
-.flow-tip { text-align: center; font-size: 13px; color: var(--text-muted); }
-
-.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-.stat-card {
-  background: #fff; border-radius: var(--radius); padding: 20px;
-  display: flex; align-items: center; gap: 14px; border: 1px solid var(--border);
-  position: relative; overflow: hidden; transition: all var(--transition);
-}
-.stat-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); border-radius: 0 4px 4px 0; }
-.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-.stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(108,92,231,.08); color: var(--accent); }
-.stat-value { font-size: 20px; font-weight: 700; display: block; }
-.stat-label { font-size: 12px; color: var(--text-muted); display: block; }
-
-.content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.dash-card { border-radius: var(--radius) !important; border: 1px solid var(--border) !important; }
-.card-head { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
-.card-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
-
-.portrait-text { font-size: 14px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 14px; }
-.trait-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.trait-col { padding: 12px; border-radius: 8px; font-size: 13px; }
-.trait-col.good { background: rgba(0,210,160,.06); }
-.trait-col.warn { background: rgba(254,202,87,.08); }
-.trait-title { font-weight: 600; margin-bottom: 6px; }
-.trait-col ul { padding-left: 16px; }
-.trait-col li { color: var(--text-secondary); margin-bottom: 4px; }
-
-.suggestions { display: flex; flex-direction: column; gap: 10px; }
-.suggest-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 8px; background: #F8F9FB; font-size: 14px; }
-.sug-num { width: 24px; height: 24px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
-.p-0 .sug-num { background: var(--primary); }
-.p-1 .sug-num { background: var(--accent); }
-.p-2 .sug-num { background: var(--warning); }
-
-.radar-container { width: 100%; height: 280px; }
-
-.quick-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.qlink { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 10px; cursor: pointer; background: #F8F9FB; font-size: 14px; transition: all .2s; }
-.qlink:hover { background: rgba(108,92,231,.08); color: var(--primary); }
-.qlink span { font-size: 18px; }
 </style>

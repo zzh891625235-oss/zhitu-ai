@@ -67,10 +67,10 @@ import { Compass, Check } from '@element-plus/icons-vue'
 const activePath = ref('job')
 
 const paths = [
-  { id: 'job', icon: '💼', title: '就业', desc: '进入企业，快速成长', color: '#6C5CE7' },
-  { id: 'postgrad', icon: '📚', title: '考研', desc: '继续深造，提升学历', color: '#00CEC9' },
-  { id: 'recommended', icon: '⭐', title: '保研', desc: '推免读研，提前锁定', color: '#FECA57' },
-  { id: 'civil', icon: '🏛', title: '考公', desc: '进入体制，稳定发展', color: '#FF6B6B' },
+  { id: 'job', icon: '💼', title: '就业', desc: '进入企业，快速成长', color: 'var(--signal)' },
+  { id: 'postgrad', icon: '📚', title: '考研', desc: '继续深造，提升学历', color: '#66BB6A' },
+  { id: 'recommended', icon: '⭐', title: '保研', desc: '推免读研，提前锁定', color: 'var(--amber)' },
+  { id: 'civil', icon: '🏛', title: '考公', desc: '进入体制，稳定发展', color: '#EF5350' },
   { id: 'startup', icon: '🚀', title: '创业', desc: '自主创业，掌控未来', color: '#54A0FF' },
 ]
 
@@ -162,24 +162,24 @@ const currentPath = computed(() => pathData[activePath.value])
 
 <style scoped>
 .career-page { max-width: 1100px; margin: 0 auto; }
-.page-hero { text-align: center; padding: 36px 0 24px; }
+.page-hero { text-align: center; padding: 36px 0 20px; }
 .page-hero h1 { font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .page-hero p { color: var(--text-secondary); margin-top: 6px; font-size: 14px; }
 
 .path-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 32px; }
 .path-card {
-  background: #fff; border: 2px solid var(--border); border-radius: var(--radius-lg);
+  background:var(--glass); border: 2px solid var(--border); border-radius: var(--radius-lg);
   padding: 24px 16px; text-align: center; cursor: pointer;
   transition: all var(--transition); position: relative;
 }
 .path-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-.path-card.active { border-color: var(--primary); background: rgba(108,92,231,.03); }
+.path-card.active { border-color: var(--primary); background: rgba(139,195,74,.03); }
 .path-icon { font-size: 36px; margin-bottom: 10px; }
 .path-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
 .path-card p { font-size: 12px; color: var(--text-muted); }
 .path-badge {
   position: absolute; top: -8px; right: -8px;
-  padding: 2px 10px; border-radius: 10px; background: #FF6B6B;
+  padding: 2px 10px; border-radius: 10px; background: #EF5350;
   color: #fff; font-size: 11px; font-weight: 600;
 }
 
@@ -193,9 +193,9 @@ const currentPath = computed(() => pathData[activePath.value])
 .detail-header h2 { font-size: 22px; font-weight: 700; }
 .detail-header p { opacity: .85; font-size: 14px; margin-top: 4px; }
 
-.stage-timeline { padding: 0 32px; background: #fff; border: 1px solid var(--border); border-top: none; }
+.stage-timeline { padding: 0 32px; background:var(--glass); border: 1px solid var(--border); border-top: none; }
 .stage-item { display: flex; gap: 20px; padding: 24px 0; }
-.stage-item:not(:last-child) { border-bottom: 1px solid #F5F6FA; }
+.stage-item:not(:last-child) { border-bottom: 1px solid var(--slate-50); }
 .stage-marker { display: flex; flex-direction: column; align-items: center; width: 40px; }
 .stage-num {
   width: 36px; height: 36px; border-radius: 10px; color: #fff;
@@ -212,11 +212,22 @@ const currentPath = computed(() => pathData[activePath.value])
 
 .path-facts {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
-  background: #FAFBFC; border: 1px solid var(--border); border-top: none;
+  background: rgba(255,255,255,.02); border: 1px solid var(--border); border-top: none;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 .fact-card { padding: 20px; text-align: center; border-right: 1px solid var(--border); }
 .fact-card:last-child { border-right: none; }
 .fact-num { display: block; font-size: 24px; font-weight: 700; margin-bottom: 4px; }
 .fact-label { display: block; font-size: 12px; color: var(--text-muted); }
+
+@media (max-width:820px){
+  .path-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .path-facts { grid-template-columns: repeat(2, 1fr); }
+  .fact-card { border-right: none; border-bottom: 1px solid var(--border); }
+  .fact-card:nth-child(odd) { border-right: 1px solid var(--border); }
+  .stage-timeline { padding: 0 16px; }
+  .detail-header { padding: 20px 18px; }
+  .detail-header h2 { font-size: 18px; }
+  .stage-header { flex-direction: column; align-items: flex-start; gap: 4px; }
+}
 </style>

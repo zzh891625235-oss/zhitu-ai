@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
+import com.zhitu.entity.Major;
 import com.zhitu.entity.StudentProfile;
 import com.zhitu.entity.User;
+import com.zhitu.mapper.MajorMapper;
 import com.zhitu.mapper.StudentProfileMapper;
 import com.zhitu.mapper.UserMapper;
 import com.zhitu.service.StudentProfileService;
@@ -22,14 +24,17 @@ public class StudentProfileServiceImpl implements StudentProfileService {
 
     private final StudentProfileMapper profileMapper;
     private final UserMapper userMapper;
+    private final MajorMapper majorMapper;
     private final AIService aiService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public StudentProfileServiceImpl(StudentProfileMapper profileMapper,
                                       UserMapper userMapper,
+                                      MajorMapper majorMapper,
                                       AIService aiService) {
         this.profileMapper = profileMapper;
         this.userMapper = userMapper;
+        this.majorMapper = majorMapper;
         this.aiService = aiService;
     }
 
@@ -114,6 +119,7 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         sb.append("学生信息：\n");
         sb.append("昵称：").append(u.getNickname()).append("\n");
         sb.append("学校：").append(p.getSchool()).append("\n");
+        sb.append("专业：").append(resolveMajorName(p.getMajorId())).append("\n");
         sb.append("年级：").append(p.getGrade()).append("\n");
         sb.append("成绩水平：").append(p.getGpa()).append("\n");
         sb.append("编程基础：").append(p.getProgrammingLevel()).append("\n");
@@ -181,6 +187,19 @@ public class StudentProfileServiceImpl implements StudentProfileService {
             case "INTERMEDIATE": return 65;
             case "BASIC": return 45;
             case "BEGINNER": default: return 25;
+        }
+    }
+
+    /** 查询专业名称；专业表不可用时回退为「未填写」，不影响画像生成 */
+    private String resolveMajorName(Long majorId) {
+        if (majorId == null) {
+            return "未填写";
+        }
+        try {
+            Major major = majorMapper.selectById(majorId);
+            return major == null ? "未填写" : major.getName();
+        } catch (Exception e) {
+            return "未填写";
         }
     }
 }

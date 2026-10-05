@@ -1,26 +1,89 @@
 package com.zhitu.ai;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.entity.UserSettings;
 import com.zhitu.mapper.UserSettingsMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import java.util.*;
 
+import javax.annotation.PostConstruct;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+
+/**
+ * DeepSeek / OpenAI 兼容协议的 AI 服务实现。
+ *
+ * 兼容任何遵循 OpenAI Chat Completions 协议的服务：
+ * DeepSeek、OpenAI、通义千问（兼容模式）等，切换只需改 application.yml。
+ *
+ * 设计要点：
+ *  1. 每个用户可使用自己的 API Key（「API 设置」页），优先级高于系统配置；
+ *  2. 调用失败会按配置重试，最终失败时降级到离线模板，并记录该状态，
+ *     前端可据此提示用户「当前不是大模型生成」，不会伪装成 AI 结果；
+ *  3. 支持流式（SSE）输出，用于 AI 助手与模拟面试的打字机效果。
+ */
 @Component
 @ConditionalOnProperty(name = "ai.provider", havingValue = "deepseek", matchIfMissing = true)
 public class DeepSeekProvider implements AIService {
 
-    @Value("${ai.api-key}") private String systemApiKey;
-    @Value("${ai.api-url}") private String systemApiUrl;
-    @Value("${ai.model}") private String systemModel;
+    private static final Logger log = LoggerFactory.getLogger(DeepSeekProvider.class);
+
+    @Value("${ai.api-key:}")
+    private String systemApiKey;
+
+    @Value("${ai.api-url:https://api.deepseek.com/v1}")
+    private String systemApiUrl;
+
+    @Value("${ai.model:deepseek-chat}")
+    private String systemModel;
+
+    @Value("${ai.timeout:60000}")
+    private int timeout;
+
+    @Value("${ai.max-retries:2}")
+    private int maxRetries;
+
     private final UserSettingsMapper settingsMapper;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public DeepSeekProvider(UserSettingsMapper settingsMapper) { this.settingsMapper = settingsMapper; }
+    /** 记录每位用户最近一次调用是否真的命中了大模型 */
+    private final Map<Long, Boolean> lastCallReal = new ConcurrentHashMap<>();
+
+    public DeepSeekProvider(UserSettingsMapper settingsMapper) {
+        this.settingsMapper = settingsMapper;
+    }
+
+    @PostConstruct
+    void initHttpClient() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Math.min(timeout, 15000));
+        factory.setReadTimeout(timeout);
+        restTemplate.setRequestFactory(factory);
+        log.info("AI 服务初始化完成：provider=deepseek, url={}, model={}, timeout={}ms, maxRetries={}",
+                systemApiUrl, systemModel, timeout, maxRetries);
+    }
+
+    // ================================================================
+    // 对外接口
+    // ================================================================
 
     @Override
     public String chat(String systemPrompt, String userMessage) {
@@ -28,67 +91,336 @@ public class DeepSeekProvider implements AIService {
     }
 
     @Override
-    public String chatForUser(Long userId, String systemPrompt, String userMessage) {
-        String key = getUserApiKey(userId);
-        String url = getUserApiUrl(userId);
-        String model = getUserModel(userId);
-        return chatWithKey(systemPrompt, userMessage, key, url, model);
+    public String chatWithKey(String systemPrompt, String userMessage, String apiKey, String apiUrl, String model) {
+        if (!isConfigured(apiKey)) {
+            return fallback(systemPrompt, userMessage);
+        }
+        String answer = callWithRetry(systemPrompt, userMessage, apiKey, apiUrl, model);
+        return answer != null ? answer : fallback(systemPrompt, userMessage);
     }
 
     @Override
-    public String chatWithKey(String systemPrompt, String userMessage, String apiKey, String apiUrl, String model) {
-        if (apiKey != null && !apiKey.isEmpty() && !apiKey.contains("your-api-key")) {
-            try {
-                String real = callAPI(systemPrompt, userMessage, apiKey, apiUrl, model);
-                if (real != null && !real.isEmpty()) return real;
-            } catch (Exception ignored) {}
+    public String chatForUser(Long userId, String systemPrompt, String userMessage) {
+        UserSettings settings = loadSettings(userId);
+        String key = firstNonBlank(settings == null ? null : settings.getApiKey(), systemApiKey);
+        String url = firstNonBlank(settings == null ? null : settings.getApiUrl(), systemApiUrl);
+        String model = firstNonBlank(settings == null ? null : settings.getModel(), systemModel);
+
+        if (!isConfigured(key)) {
+            markCall(userId, false);
+            return fallback(systemPrompt, userMessage);
         }
+        String answer = callWithRetry(systemPrompt, userMessage, key, url, model);
+        if (answer != null) {
+            markCall(userId, true);
+            return answer;
+        }
+        markCall(userId, false);
         return fallback(systemPrompt, userMessage);
     }
 
     @Override
+    public String chatStreamForUser(Long userId, String systemPrompt, String userMessage, Consumer<String> onDelta) {
+        UserSettings settings = loadSettings(userId);
+        String key = firstNonBlank(settings == null ? null : settings.getApiKey(), systemApiKey);
+        String url = firstNonBlank(settings == null ? null : settings.getApiUrl(), systemApiUrl);
+        String model = firstNonBlank(settings == null ? null : settings.getModel(), systemModel);
+
+        if (isConfigured(key)) {
+            try {
+                String full = streamOnce(systemPrompt, userMessage, key, url, model, onDelta);
+                if (full != null && !full.trim().isEmpty()) {
+                    markCall(userId, true);
+                    return full;
+                }
+            } catch (Exception e) {
+                log.warn("流式调用失败，降级为离线模板：{}", e.getMessage());
+            }
+        }
+
+        // 降级：一次性把离线模板内容推给前端，保证界面仍有反馈
+        markCall(userId, false);
+        String fb = fallback(systemPrompt, userMessage);
+        if (onDelta != null) {
+            onDelta.accept(fb);
+        }
+        return fb;
+    }
+
+    @Override
     public String getUserApiKey(Long userId) {
-        try {
-            UserSettings s = settingsMapper.selectOne(new LambdaQueryWrapper<UserSettings>().eq(UserSettings::getUserId, userId));
-            if (s != null && s.getApiKey() != null && !s.getApiKey().isEmpty()) return s.getApiKey();
-        } catch (Exception ignored) {}
+        UserSettings settings = loadSettings(userId);
+        if (settings != null && isConfigured(settings.getApiKey())) {
+            return settings.getApiKey();
+        }
         return systemApiKey;
     }
 
-    private String getUserApiUrl(Long userId) {
-        try {
-            UserSettings s = settingsMapper.selectOne(new LambdaQueryWrapper<UserSettings>().eq(UserSettings::getUserId, userId));
-            if (s != null && s.getApiUrl() != null) return s.getApiUrl();
-        } catch (Exception ignored) {}
-        return systemApiUrl;
+    @Override
+    public Map<String, Object> status(Long userId) {
+        UserSettings settings = loadSettings(userId);
+        String userKey = settings == null ? null : settings.getApiKey();
+        String effectiveKey = firstNonBlank(userKey, systemApiKey);
+
+        Map<String, Object> status = new LinkedHashMap<>();
+        status.put("provider", "deepseek");
+        status.put("model", firstNonBlank(settings == null ? null : settings.getModel(), systemModel));
+        status.put("configured", isConfigured(effectiveKey));
+        status.put("keySource", isConfigured(userKey) ? "USER" : (isConfigured(systemApiKey) ? "SYSTEM" : "NONE"));
+        status.put("lastCallReal", lastCallReal.getOrDefault(userId, false));
+        return status;
     }
 
-    private String getUserModel(Long userId) {
+    // ================================================================
+    // 内部实现
+    // ================================================================
+
+    /** 读取用户级配置；表不存在或查询异常时安全返回 null，不影响主流程 */
+    private UserSettings loadSettings(Long userId) {
+        if (userId == null) {
+            return null;
+        }
         try {
-            UserSettings s = settingsMapper.selectOne(new LambdaQueryWrapper<UserSettings>().eq(UserSettings::getUserId, userId));
-            if (s != null && s.getModel() != null) return s.getModel();
-        } catch (Exception ignored) {}
-        return systemModel;
+            return settingsMapper.selectOne(
+                    new LambdaQueryWrapper<UserSettings>().eq(UserSettings::getUserId, userId));
+        } catch (Exception e) {
+            log.debug("读取用户 AI 配置失败（userId={}）：{}", userId, e.getMessage());
+            return null;
+        }
     }
 
-    private String callAPI(String sp, String um, String key, String url, String model) {
-        HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON); h.setBearerAuth(key);
-        Map<String,String> sys=new LinkedHashMap<>(); sys.put("role","system"); sys.put("content",sp);
-        Map<String,String> usr=new LinkedHashMap<>(); usr.put("role","user"); usr.put("content",um);
-        List<Map<String,String>> ms=new ArrayList<>(); ms.add(sys); ms.add(usr);
-        Map<String,Object> body=new LinkedHashMap<>(); body.put("model",model); body.put("messages",ms); body.put("temperature",0.7);
-        ResponseEntity<Map> resp=restTemplate.postForEntity(url+"/chat/completions",new HttpEntity<>(body,h),Map.class);
-        Map<String,Object> rb=resp.getBody();
-        if(rb!=null&&rb.containsKey("choices")){List<Map<String,Object>> cs=(List)rb.get("choices");if(!cs.isEmpty()){Map<String,Object> m=(Map)cs.get(0).get("message");return(String)m.get("content");}}
+    /** 带重试的调用，全部失败返回 null（由调用方决定是否降级） */
+    private String callWithRetry(String systemPrompt, String userMessage, String key, String url, String model) {
+        int attempts = Math.max(1, maxRetries + 1);
+        String lastError = null;
+        for (int i = 1; i <= attempts; i++) {
+            try {
+                String answer = callApi(systemPrompt, userMessage, key, url, model);
+                if (answer != null && !answer.trim().isEmpty()) {
+                    return answer;
+                }
+                lastError = "模型返回内容为空";
+            } catch (Exception e) {
+                lastError = e.getMessage();
+                log.warn("AI 调用失败（第 {}/{} 次）：{}", i, attempts, e.getMessage());
+            }
+        }
+        log.warn("AI 调用最终失败，已降级为离线模板：{}", lastError);
         return null;
     }
 
-    private String fallback(String sp, String um) {
-        if(um==null)return "";
-        if(um.contains("多态"))return "**多态**：同一方法调用，不同对象表现不同行为。\n```java\nAnimal a=new Dog(); a.sound();//汪汪\n```\n条件：继承+重写+父类引用指向子类。";
-        if(um.contains("链表"))return "**链表vs数组**\n|访问|O(1)vsO(n)|\n|插入|O(n)vsO(1)|\n📌随机访问选数组，频繁插入选链表。";
-        if(um.contains("秋招"))return "**秋招准备**：\n📌技术栈深入一门\n📌LeetCode200+\n📌2个完整项目\n📌大三暑假实习\n7-8月提前批→9-10月正式批。";
-        if(um.contains("竞赛"))return "🏆新手：传智杯/蓝桥杯\n🏆进阶：ACM/数学建模\n建议大一大二从蓝桥杯开始。";
-        return "关于「"+(um.length()>20?um.substring(0,20)+"...":um)+"」，配置AI API Key后获得更精准回答。";
+    @SuppressWarnings("unchecked")
+    private String callApi(String systemPrompt, String userMessage, String key, String url, String model) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(key);
+
+        Map<String, Object> body = buildRequestBody(systemPrompt, userMessage, model, false);
+        String endpoint = chatEndpoint(url);
+
+        ResponseEntity<Map> response = restTemplate.postForEntity(endpoint, new HttpEntity<>(body, headers), Map.class);
+        Map<String, Object> result = response.getBody();
+        if (result == null) {
+            return null;
+        }
+        Object choices = result.get("choices");
+        if (!(choices instanceof List) || ((List<?>) choices).isEmpty()) {
+            return null;
+        }
+        Object message = ((Map<String, Object>) ((List<?>) choices).get(0)).get("message");
+        if (message instanceof Map) {
+            Object content = ((Map<?, ?>) message).get("content");
+            return content == null ? null : content.toString();
+        }
+        return null;
+    }
+
+    /** 流式调用：逐行解析 SSE，把增量内容回调出去 */
+    private String streamOnce(String systemPrompt, String userMessage, String key, String url, String model,
+                              Consumer<String> onDelta) {
+        Map<String, Object> body = buildRequestBody(systemPrompt, userMessage, model, true);
+        String endpoint = chatEndpoint(url);
+
+        return restTemplate.execute(URI.create(endpoint), HttpMethod.POST, request -> {
+            request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+            request.getHeaders().setBearerAuth(key);
+            request.getHeaders().setAccept(Collections.singletonList(MediaType.TEXT_EVENT_STREAM));
+            objectMapper.writeValue(request.getBody(), body);
+        }, response -> {
+            StringBuilder full = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(response.getBody(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.isEmpty() || !line.startsWith("data:")) {
+                        continue;
+                    }
+                    String payload = line.substring(5).trim();
+                    if ("[DONE]".equals(payload)) {
+                        break;
+                    }
+                    String delta = extractDelta(payload);
+                    if (delta != null && !delta.isEmpty()) {
+                        full.append(delta);
+                        if (onDelta != null) {
+                            onDelta.accept(delta);
+                        }
+                    }
+                }
+            }
+            return full.toString();
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractDelta(String json) {
+        try {
+            Map<String, Object> node = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+            Object choices = node.get("choices");
+            if (!(choices instanceof List) || ((List<?>) choices).isEmpty()) {
+                return null;
+            }
+            Object delta = ((Map<String, Object>) ((List<?>) choices).get(0)).get("delta");
+            if (delta instanceof Map) {
+                Object content = ((Map<?, ?>) delta).get("content");
+                return content == null ? null : content.toString();
+            }
+        } catch (Exception ignored) {
+            // 单行解析失败不影响整体流
+        }
+        return null;
+    }
+
+    private Map<String, Object> buildRequestBody(String systemPrompt, String userMessage, String model, boolean stream) {
+        Map<String, String> sys = new LinkedHashMap<>();
+        sys.put("role", "system");
+        sys.put("content", systemPrompt);
+        Map<String, String> usr = new LinkedHashMap<>();
+        usr.put("role", "user");
+        usr.put("content", userMessage);
+
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(sys);
+        messages.add(usr);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("messages", messages);
+        body.put("temperature", 0.7);
+        if (stream) {
+            body.put("stream", true);
+        }
+        return body;
+    }
+
+    private String chatEndpoint(String url) {
+        String base = url == null ? "" : url.trim();
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return base + "/chat/completions";
+    }
+
+    private boolean isConfigured(String key) {
+        return key != null && !key.trim().isEmpty() && !key.contains("your-api-key");
+    }
+
+    private void markCall(Long userId, boolean real) {
+        if (userId != null) {
+            lastCallReal.put(userId, real);
+        }
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (first != null && !first.trim().isEmpty()) {
+            return first.trim();
+        }
+        return second;
+    }
+
+    // ================================================================
+    // 离线模板：未配置 Key 或调用失败时使用
+    // 内容基于常见计算机专业问题的人工知识库，保证断网演示时依然可用
+    // ================================================================
+
+    private String fallback(String systemPrompt, String userMessage) {
+        if (userMessage == null || userMessage.trim().isEmpty()) {
+            return "请告诉我你的问题，我会尽力帮你分析。";
+        }
+        String q = userMessage;
+
+        if (q.contains("多态")) {
+            return "**多态**：同一个方法调用，作用在不同对象上产生不同行为。\n\n"
+                 + "三个必要条件：继承、方法重写、父类引用指向子类对象。\n\n"
+                 + "```java\nAnimal a = new Dog();\na.sound(); // 输出「汪汪」而不是「动物叫」\n```\n\n"
+                 + "面试延伸：JVM 通过虚方法表在运行时确定实际调用哪个方法，这叫动态绑定。";
+        }
+        if (q.contains("链表") || q.contains("数组")) {
+            return "**链表 vs 数组**\n\n"
+                 + "| 维度 | 数组 | 链表 |\n| --- | --- | --- |\n"
+                 + "| 随机访问 | O(1) | O(n) |\n| 插入删除 | O(n) | O(1) |\n| 内存 | 连续，可能浪费 | 分散，额外指针开销 |\n\n"
+                 + "选择原则：读多写少用数组，频繁插入删除用链表。";
+        }
+        if (q.contains("三次握手") || q.contains("TCP")) {
+            return "**TCP 三次握手**\n\n"
+                 + "1. 客户端 → 服务端：SYN，携带初始序号 seq=x\n"
+                 + "2. 服务端 → 客户端：SYN+ACK，seq=y，ack=x+1\n"
+                 + "3. 客户端 → 服务端：ACK，ack=y+1\n\n"
+                 + "为什么是三次：需要双方都确认「自己的发送能力」和「对方的接收能力」都正常，两次无法让服务端确认客户端能收到。";
+        }
+        if (q.contains("索引")) {
+            return "**MySQL 索引要点**\n\n"
+                 + "* 底层是 B+ 树：非叶子节点只存键，叶子节点存数据并用链表相连，适合范围查询\n"
+                 + "* 最左前缀原则：联合索引 (a,b,c) 能命中 a、a+b、a+b+c，无法命中 b 单独查询\n"
+                 + "* 索引失效常见场景：对列做运算或函数、隐式类型转换、以 % 开头的模糊查询\n"
+                 + "* 用 EXPLAIN 看 type 和 key，尽量避免 ALL（全表扫描）";
+        }
+        if (q.contains("秋招") || q.contains("求职") || q.contains("找工作")) {
+            return "**秋招准备路线**\n\n"
+                 + "1. 技术栈：深入一门语言 + 常用框架原理（Spring、MySQL、Redis）\n"
+                 + "2. 算法：LeetCode 200 题以上，重点掌握高频题型\n"
+                 + "3. 项目：至少 2 个能讲清楚难点的完整项目\n"
+                 + "4. 实习：大三暑假的实习是校招最大加分项\n\n"
+                 + "时间线：7-8 月提前批 → 9-10 月正式批 → 次年 3-4 月春招补录。";
+        }
+        if (q.contains("考研") || q.contains("保研")) {
+            return "**考研 / 保研要点**\n\n"
+                 + "* 保研：看前三年 GPA + 竞赛科研，大三下就要开始联系导师和参加夏令营\n"
+                 + "* 考研：数学 + 英语 + 政治 + 专业课（计算机多为 408）\n"
+                 + "* 时间线：大三上确定目标院校 → 大三下开始系统复习 → 大四上 12 月考试\n"
+                 + "* 无论哪条路，GPA 都是基础，不要为了竞赛牺牲成绩。";
+        }
+        if (q.contains("竞赛") || q.contains("蓝桥杯") || q.contains("ACM")) {
+            return "**计算机类竞赛选择建议**\n\n"
+                 + "* 入门友好：传智杯、蓝桥杯（个人赛，适合第一次参赛）\n"
+                 + "* 含金量高：ACM-ICPC、中国大学生计算机设计大赛\n"
+                 + "* 保研加分：数学建模竞赛、互联网+创新创业大赛\n\n"
+                 + "建议大一大二从蓝桥杯起步积累经验，大三冲击高含金量赛事。";
+        }
+        if (q.contains("实习")) {
+            return "**如何拿到第一份实习**\n\n"
+                 + "1. 先有一个能演示的项目，部署上线并有 GitHub 仓库\n"
+                 + "2. 简历突出「你解决了什么问题」，而不是「你用了什么技术」\n"
+                 + "3. 投递节奏：日常实习全年可投，暑期实习集中在 3-5 月\n"
+                 + "4. 面试重点：项目细节 + 八股（Java 基础、集合、JVM、MySQL、Redis）+ 算法题";
+        }
+        if (q.contains("简历")) {
+            return "**技术简历写作要点**\n\n"
+                 + "* 一页为宜，倒序排列经历\n"
+                 + "* 项目描述用 STAR 法：背景 → 你的任务 → 你怎么做的 → 量化结果\n"
+                 + "* 反例：负责后端开发\n"
+                 + "* 正例：独立设计订单表结构并优化慢查询，接口 P95 从 800ms 降到 120ms\n"
+                 + "* 技能栏只写能被追问的，写了就要能答上来";
+        }
+
+        // 通用兜底：给出结构化思路，并明确说明当前处于离线模式
+        String topic = q.length() > 24 ? q.substring(0, 24) + "……" : q;
+        return "关于「" + topic + "」，可以从这几个角度入手：\n\n"
+             + "1. **先明确目标**：你希望解决的具体问题是什么，期望达到什么结果\n"
+             + "2. **拆解路径**：把大目标拆成阶段性的小任务，明确每阶段要产出的东西\n"
+             + "3. **找参照**：看看同专业、同年级里做得好的同学是怎么做的\n"
+             + "4. **立即行动**：先做一件 30 分钟内能完成的事，避免停留在计划阶段\n\n"
+             + "> 当前运行在**离线模板模式**，以上为内置建议。"
+             + "在「API 设置」中填入自己的 API Key 后，即可获得针对你个人学情的深度分析。";
     }
 }

@@ -77,7 +77,9 @@ public class CourseController {
                                      @PathVariable Long id,
                                      @RequestBody Map<String, Object> body) {
         Long userId = (Long) auth.getPrincipal();
-        int progress = (int) body.getOrDefault("progress", 0);
+        int progress = toInt(body.get("progress"), 0);
+        // 进度收敛到 0-100，避免前端传入越界值污染统计
+        progress = Math.max(0, Math.min(100, progress));
 
         LearningRecord record = recordMapper.selectOne(
             new LambdaQueryWrapper<LearningRecord>()
@@ -98,5 +100,20 @@ public class CourseController {
             recordMapper.updateById(record);
         }
         return Result.success("进度更新成功");
+    }
+
+    /** 宽松地把请求体中的值转成 int，避免前端传 null 或字符串时抛 ClassCastException */
+    private int toInt(Object value, int defaultValue) {
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Integer.parseInt(((String) value).trim());
+            } catch (NumberFormatException ignored) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
     }
 }

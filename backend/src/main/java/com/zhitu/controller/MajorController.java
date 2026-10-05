@@ -22,7 +22,10 @@ public class MajorController {
 
     @GetMapping("/majors")
     public Result<List<Major>> listMajors() {
-        List<Major> majors = majorMapper.selectList(null);
+        // 按 sort_order 返回，保证前端下拉框里「计算机科学与技术」等常见专业排在前面
+        List<Major> majors = majorMapper.selectList(
+            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Major>()
+                .orderByAsc(Major::getSortOrder));
         return Result.success(majors);
     }
 }

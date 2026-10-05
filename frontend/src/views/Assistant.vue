@@ -2,7 +2,12 @@
   <div class="assistant-page">
     <div class="page-hero">
       <h1><el-icon><ChatDotRound /></el-icon> AI成长助手</h1>
-      <p>学习答疑 · 职业规划 · 竞赛咨询 · 成长建议</p>
+      <p>学习答疑 · 职业规划 · 竞赛咨询 · 模拟面试</p>
+      <div class="ai-mode" :class="aiStatus.configured ? 'online' : 'offline'">
+        <span class="mode-dot"></span>
+        <span v-if="aiStatus.configured">已接入真实大模型 · {{ aiStatus.model }}</span>
+        <span v-else>离线模板模式 · 在「API设置」中填入 Key 即可启用真实大模型</span>
+      </div>
     </div>
 
     <div class="assistant-layout">
@@ -16,6 +21,11 @@
             <div class="mode-name">{{ m.name }}</div>
             <div class="mode-desc">{{ m.desc }}</div>
           </div>
+        </div>
+        <div class="mode-tools">
+          <el-button text size="small" :disabled="!messages.length" @click="handleClear">
+            <el-icon><Delete /></el-icon>&nbsp;清空当前对话
+          </el-button>
         </div>
       </div>
 
@@ -42,12 +52,16 @@
               <span v-else>AI</span>
             </div>
             <div class="msg-bubble" :class="msg.role">
-              <div class="msg-text" v-html="formatMsg(msg.content)"></div>
-              <div class="msg-time">{{ msg.time }}</div>
+              <div class="msg-text md-body" v-html="renderMarkdown(msg.content)"></div>
+              <span v-if="msg.role === 'ai' && loading && idx === messages.length - 1" class="caret"></span>
+              <div class="msg-time">
+                <span v-if="msg.role === 'ai' && msg.real === false" class="offline-tag">离线模板</span>
+                <span v-if="msg.time">{{ msg.time }}</span>
+              </div>
             </div>
           </div>
 
-          <div v-if="loading" class="msg-row ai">
+          <div v-if="showTyping" class="msg-row ai">
             <div class="msg-avatar"><span>AI</span></div>
             <div class="msg-bubble ai typing">
               <span class="typing-dot"></span>
@@ -58,12 +72,11 @@
         </div>
 
         <div class="chat-input-area">
-          <el-input v-model="inputText" placeholder="输入你的问题..." size="large"
-            @keyup.enter="sendMessage()" :disabled="loading">
-            <template #append>
-              <el-button type="primary" @click="sendMessage()" :loading="loading" :icon="Promotion" />
-            </template>
+          <el-input v-model="inputText" placeholder="输入你的问题，Enter 发送..." size="large"
+            type="textarea" :rows="1" resize="none" :autosize="{ minRows: 1, maxRows: 4 }"
+            @keydown.enter.exact.prevent="sendMessage()" :disabled="loading">
           </el-input>
+          <el-button type="primary" class="send-btn" @click="sendMessage()" :loading="loading" :icon="Promotion" />
         </div>
       </div>
     </div>
@@ -71,16 +84,18 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
-import { ChatDotRound, Promotion } from '@element-plus/icons-vue'
-import { chatApi, getHistoryApi } from '../api/ai'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, computed, nextTick, onMounted } from 'vue'
+import { ChatDotRound, Promotion, Delete } from '@element-plus/icons-vue'
+import { getHistoryApi, clearHistoryApi, getAiStatusApi, streamChatApi } from '../api/ai'
+import { renderMarkdown } from '../utils/markdown'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const currentMode = ref('GENERAL')
 const messages = ref([])
 const inputText = ref('')
 const loading = ref(false)
 const msgContainer = ref(null)
+const aiStatus = reactive({ configured: false, model: '', keySource: 'NONE' })
 
 const modes = [
   { id: 'GENERAL', icon: '🤖', name: '通用问答', desc: '学习成长咨询',
@@ -95,13 +110,20 @@ const modes = [
   { id: 'COMPETITION', icon: '🏆', name: '竞赛咨询', desc: '比赛策略+准备',
     welcome: '我是竞赛辅导老师。帮你选择适合的比赛、制定备赛策略！',
     quickQuestions: ['蓝桥杯怎么准备？', 'ACM和蓝桥杯有什么区别？', '数学建模竞赛需要什么基础？'] },
+  { id: 'INTERVIEW', icon: '🎤', name: '模拟面试', desc: '技术面试演练',
+    welcome: '我是你的技术面试官。我会像真实面试一样提问，并在你回答后给出具体点评。\n\n准备好了就说「开始面试」，我先了解一下你的目标岗位。',
+    quickQuestions: ['开始面试，我投递的是Java后端实习', '问我几道MySQL索引的题', '帮我练习自我介绍'] }
 ]
 
-const currentModeObj = computed(() => modes.find(m => m.id === currentMode.value))
+const currentModeObj = computed(() => modes.find(m => m.id === currentMode.value) || modes[0])
+const showTyping = computed(() => {
+  if (!loading.value || !messages.value.length) return false
+  const last = messages.value[messages.value.length - 1]
+  return last.role === 'ai' && !last.content
+})
 
-function formatMsg(text) {
-  if (!text) return ''
-  return text.replace(/\n/g, '<br>')
+function timeNow() {
+  return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
 function scrollBottom() {
@@ -117,27 +139,75 @@ async function switchMode(id) {
     const res = await getHistoryApi(id)
     const history = res.data || []
     history.reverse().forEach(h => {
-      messages.value.push({ role: 'user', content: h.question, time: h.createdAt?.substring(11,16) || '' })
-      messages.value.push({ role: 'ai', content: h.answer, time: h.createdAt?.substring(11,16) || '' })
+      messages.value.push({ role: 'user', content: h.question, time: (h.createdAt || '').substring(11, 16) })
+      messages.value.push({ role: 'ai', content: h.answer, time: (h.createdAt || '').substring(11, 16) })
     })
-  } catch (e) {}
+  } catch (e) {
+    // 历史加载失败不影响新对话
+  }
   scrollBottom()
 }
 
-async function sendMessage(q) {
-  const text = q || inputText.value.trim()
+async function sendMessage(quick) {
+  const text = (quick || inputText.value).trim()
   if (!text || loading.value) return
-  messages.value.push({ role: 'user', content: text, time: new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}) })
+
+  messages.value.push({ role: 'user', content: text, time: timeNow() })
   inputText.value = ''
   loading.value = true
   scrollBottom()
+
+  // 用 reactive 包装，保证流式追加内容时能触发视图更新
+  const aiMsg = reactive({ role: 'ai', content: '', time: timeNow(), real: null })
+  messages.value.push(aiMsg)
+
   try {
-    const res = await chatApi(text, currentMode.value)
-    messages.value.push({ role: 'ai', content: res.data.answer, time: new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}) })
+    await streamChatApi(text, currentMode.value, {
+      onDelta: delta => {
+        aiMsg.content += delta
+        scrollBottom()
+      },
+      onDone: meta => {
+        aiMsg.real = meta.real
+        if (meta.real) aiStatus.configured = true
+      },
+      onError: msg => {
+        if (!aiMsg.content) aiMsg.content = msg
+      }
+    })
   } catch (e) {
-    messages.value.push({ role: 'ai', content: '抱歉，AI服务暂时不可用。请稍后重试。', time: '' })
-  } finally { loading.value = false; scrollBottom() }
+    if (!aiMsg.content) {
+      aiMsg.content = '抱歉，AI 服务暂时不可用。请检查后端服务是否启动，或稍后重试。'
+    }
+  } finally {
+    loading.value = false
+    scrollBottom()
+  }
 }
+
+async function handleClear() {
+  try {
+    await ElMessageBox.confirm('确定要清空当前模式的对话记录吗？', '提示', { type: 'warning' })
+  } catch (e) {
+    return
+  }
+  try {
+    await clearHistoryApi(currentMode.value)
+    messages.value = []
+    ElMessage.success('已清空')
+  } catch (e) {
+    messages.value = []
+  }
+}
+
+onMounted(async () => {
+  try {
+    Object.assign(aiStatus, (await getAiStatusApi()).data || {})
+  } catch (e) {
+    // 状态获取失败时按离线模式展示
+  }
+  await switchMode('GENERAL')
+})
 </script>
 
 <style scoped>
@@ -145,6 +215,14 @@ async function sendMessage(q) {
 .page-hero { text-align: center; padding: 28px 0 20px; }
 .page-hero h1 { font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .page-hero p { color: var(--text-secondary); margin-top: 6px; font-size: 14px; }
+
+.ai-mode {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
+  padding: 5px 14px; border-radius: 20px; font-size: 12px;
+}
+.ai-mode.online { background: rgba(102,187,106,.10); color: #66BB6A; }
+.ai-mode.offline { background: rgba(245,165,36,.10); color: #F5C97A; }
+.mode-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
 .assistant-layout { display: grid; grid-template-columns: 240px 1fr; gap: 20px; margin-bottom: 40px; }
 
@@ -154,25 +232,26 @@ async function sendMessage(q) {
   display: flex; align-items: center; gap: 12px; transition: all .2s;
   border: 1.5px solid transparent;
 }
-.mode-item:hover { background: #F5F6FA; }
-.mode-item.active { background: rgba(108,92,231,.06); border-color: var(--primary); }
+.mode-item:hover { background: var(--slate-50); }
+.mode-item.active { background: rgba(139,195,74,.06); border-color: var(--primary); }
 .mode-icon { font-size: 22px; }
 .mode-name { font-size: 14px; font-weight: 600; }
 .mode-desc { font-size: 11px; color: var(--text-muted); }
+.mode-tools { margin-top: 8px; text-align: center; }
 
-.chat-panel { background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--border); display: flex; flex-direction: column; height: 640px; }
+.chat-panel { background:var(--glass); border-radius: var(--radius-lg); border: 1px solid var(--border); display: flex; flex-direction: column; height: 640px; }
 .chat-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 600; }
 
 .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
 .chat-welcome { text-align: center; padding: 40px 0; }
 .welcome-icon { font-size: 48px; margin-bottom: 12px; }
-.chat-welcome p { color: var(--text-secondary); margin-bottom: 20px; }
+.chat-welcome p { color: var(--text-secondary); margin-bottom: 20px; white-space: pre-line; }
 .quick-qs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .quick-q {
-  padding: 8px 16px; background: #F5F6FA; border-radius: 20px;
+  padding: 8px 16px; background: var(--slate-50); border-radius: 20px;
   cursor: pointer; font-size: 13px; color: var(--primary); transition: all .2s;
 }
-.quick-q:hover { background: rgba(108,92,231,.1); }
+.quick-q:hover { background: rgba(139,195,74,.12); }
 
 .msg-row { display: flex; gap: 10px; }
 .msg-row.user { flex-direction: row-reverse; }
@@ -181,20 +260,65 @@ async function sendMessage(q) {
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #fff;
 }
-.msg-row.user .msg-avatar { background: var(--primary); }
-.msg-row.ai .msg-avatar { background: var(--accent); }
+.msg-row.user .msg-avatar { background: var(--primary); color: var(--void); }
+.msg-row.ai .msg-avatar { background: #A855F7; }
 
 .msg-bubble {
-  max-width: 75%; padding: 12px 16px; border-radius: 14px; font-size: 14px; line-height: 1.6;
+  max-width: 78%; padding: 12px 16px; border-radius: 14px; font-size: 14px; line-height: 1.7;
 }
-.msg-bubble.user { background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
-.msg-bubble.ai { background: #F5F6FA; color: var(--text-secondary); border-bottom-left-radius: 4px; }
-.msg-time { font-size: 10px; opacity: .5; margin-top: 4px; text-align: right; }
+.msg-bubble.user { background: var(--primary); color: var(--void); border-bottom-right-radius: 4px; }
+.msg-bubble.ai { background: rgba(255,255,255,.035); color: var(--text-secondary); border-bottom-left-radius: 4px; }
+.msg-time { font-size: 10px; opacity: .5; margin-top: 6px; display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.offline-tag { color: #F5C97A; opacity: .9; }
 .msg-bubble.typing { display: flex; gap: 4px; padding: 14px 18px; }
 .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: #B0B5BD; animation: bounce 1.4s infinite; }
 .typing-dot:nth-child(2) { animation-delay: .2s; }
 .typing-dot:nth-child(3) { animation-delay: .4s; }
 @keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
 
-.chat-input-area { padding: 14px 20px; border-top: 1px solid var(--border); }
+.caret {
+  display: inline-block; width: 2px; height: 14px; vertical-align: middle;
+  background: var(--signal); margin-left: 2px; animation: blink 1s steps(2) infinite;
+}
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+.chat-input-area { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: flex-end; }
+.send-btn { height: 40px; width: 46px; flex-shrink: 0; }
+
+/* Markdown 正文样式（v-html 内容需要 :deep 才能命中） */
+.msg-text :deep(p) { margin: 0 0 8px; }
+.msg-text :deep(p:last-child) { margin-bottom: 0; }
+.msg-text :deep(h3), .msg-text :deep(h4) { font-size: 14px; font-weight: 600; margin: 12px 0 6px; color: #fff; }
+.msg-text :deep(h3:first-child), .msg-text :deep(h4:first-child) { margin-top: 0; }
+.msg-text :deep(ul) { margin: 6px 0; padding-left: 18px; }
+.msg-text :deep(li) { margin: 3px 0; list-style: disc; }
+.msg-text :deep(li.md-ordered) { list-style: decimal; }
+.msg-text :deep(strong) { color: #fff; font-weight: 600; }
+.msg-text :deep(code) {
+  background: rgba(139,195,74,.12); color: #A5D66A; padding: 1px 5px;
+  border-radius: 4px; font-size: 12.5px; font-family: Consolas, Monaco, monospace;
+}
+.msg-text :deep(.md-code) {
+  background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; overflow-x: auto; margin: 8px 0;
+}
+.msg-text :deep(.md-code code) { background: none; color: #C8E6A0; padding: 0; font-size: 12.5px; line-height: 1.6; }
+.msg-text :deep(.md-table) { border-collapse: collapse; margin: 8px 0; font-size: 12.5px; width: 100%; }
+.msg-text :deep(.md-table th), .msg-text :deep(.md-table td) { border: 1px solid var(--border); padding: 5px 8px; text-align: left; }
+.msg-text :deep(.md-table th) { background: rgba(255,255,255,.04); color: #fff; font-weight: 600; }
+.msg-text :deep(blockquote) {
+  border-left: 2px solid var(--signal); padding-left: 10px; margin: 8px 0;
+  color: var(--fog); font-size: 13px;
+}
+
+/* 移动端：模式面板横向滚动，聊天区占满高度 */
+@media (max-width: 820px) {
+  .assistant-layout { grid-template-columns: 1fr; gap: 12px; }
+  .mode-panel { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
+  .mode-item { flex: 0 0 auto; padding: 10px 14px; }
+  .mode-desc { display: none; }
+  .mode-tools { display: none; }
+  .chat-panel { height: calc(100vh - 300px); min-height: 420px; }
+  .msg-bubble { max-width: 88%; }
+}
 </style>

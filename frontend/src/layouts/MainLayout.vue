@@ -1,95 +1,209 @@
 <template>
   <div class="main-layout">
+    <!-- Kage Void 3D 背景 -->
+    <iframe src="/sylva/scene.html" class="bg-sylva" loading="eager" scrolling="no" allow="autoplay"></iframe>
+    <div class="bg-sylva-fade"></div>
+
     <header class="header">
-      <div class="header-bg"></div>
       <div class="header-inner">
-        <div class="logo" @click="$router.push('/')">
-          <div class="logo-icon"><span>Z</span></div>
-          <div class="logo-text"><span class="logo-main">智途</span><span class="logo-sub">AI</span></div>
+        <div class="logo" @click="$router.push('/home')">
+          <span class="logo-dot"></span>
+          <span class="logo-word">ZHITU</span>
         </div>
         <nav class="nav">
-          <router-link to="/" class="nav-item" exact-active-class="active"><el-icon><HomeFilled /></el-icon><span>首页</span></router-link>
-          <router-link to="/plan" class="nav-item" active-class="active"><el-icon><MagicStick /></el-icon><span>AI成长规划</span></router-link>
-          <router-link to="/courses" class="nav-item" active-class="active"><el-icon><Reading /></el-icon><span>专业学习</span></router-link>
-          <router-link to="/competitions" class="nav-item" active-class="active"><el-icon><TrophyBase /></el-icon><span>竞赛中心</span></router-link>
-          <router-link to="/career" class="nav-item" active-class="active"><el-icon><Compass /></el-icon><span>发展方向</span></router-link>
-          <router-link to="/assistant" class="nav-item" active-class="active"><el-icon><ChatDotRound /></el-icon><span>AI助手</span></router-link>
-          <router-link to="/growth" class="nav-item" active-class="active"><el-icon><DataAnalysis /></el-icon><span>成长档案</span></router-link>
-          <router-link to="/resume" class="nav-item" active-class="active"><el-icon><Document /></el-icon><span>AI简历</span></router-link>
+          <router-link to="/home" class="nav-item" exact-active-class="active">首页</router-link>
+          <router-link to="/home/plan" class="nav-item" active-class="active">AI成长规划</router-link>
+          <router-link to="/home/courses" class="nav-item" active-class="active">专业学习</router-link>
+          <router-link to="/home/competitions" class="nav-item" active-class="active">竞赛中心</router-link>
+          <router-link to="/home/career" class="nav-item" active-class="active">发展方向</router-link>
+          <router-link to="/home/assistant" class="nav-item" active-class="active">AI助手</router-link>
+          <router-link to="/home/growth" class="nav-item" active-class="active">成长档案</router-link>
+          <router-link to="/home/resume" class="nav-item" active-class="active">AI简历</router-link>
         </nav>
+
         <div class="header-right">
-          <el-dropdown trigger="click">
+          <!-- 站内通知 -->
+          <el-popover placement="bottom-end" :width="330" trigger="click" @show="loadNotifications">
+            <template #reference>
+              <div class="icon-btn notify-btn" title="通知">
+                <el-icon :size="15"><Bell /></el-icon>
+                <span v-if="unread > 0" class="badge">{{ unread > 99 ? '99+' : unread }}</span>
+              </div>
+            </template>
+            <div class="notify-panel">
+              <div class="np-head">
+                <span>通知</span>
+                <el-button text size="small" :disabled="unread === 0" @click="handleReadAll">全部已读</el-button>
+              </div>
+              <div class="np-body" v-if="notifications.length">
+                <div v-for="n in notifications" :key="n.id" class="np-item"
+                  :class="{ unread: !n.isRead }" @click="handleRead(n)">
+                  <div class="np-title">{{ n.title }}</div>
+                  <div class="np-content">{{ n.content }}</div>
+                  <div class="np-time">{{ formatNotifyTime(n.createdAt) }}</div>
+                </div>
+              </div>
+              <div v-else class="np-empty">暂无通知</div>
+            </div>
+          </el-popover>
+
+          <!-- 管理员入口：仅 ADMIN 角色可见，后端 /api/admin/** 也会二次校验 -->
+          <router-link v-if="isAdmin" to="/home/admin" class="icon-btn" title="管理后台">
+            <el-icon :size="15"><DataAnalysis /></el-icon>
+          </router-link>
+
+          <router-link to="/home/settings" class="icon-btn" title="API设置">
+            <el-icon :size="15"><Setting /></el-icon>
+          </router-link>
+
+          <el-dropdown trigger="click" placement="bottom-end">
             <div class="user-chip">
-              <el-avatar :size="34" icon="UserFilled" class="user-avatar" />
-              <span class="user-name">{{ userStore.userInfo?.nickname || '同学' }}</span>
-              <el-icon class="chevron"><ArrowDown /></el-icon>
+              <el-avatar :size="26" icon="UserFilled" />
+              <span>{{ userStore.userInfo?.nickname || '同学' }}</span>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="$router.push('/growth')"><el-icon><User /></el-icon> 我的档案</el-dropdown-item>
-                <el-dropdown-item @click="$router.push('/init')"><el-icon><Edit /></el-icon> 更新档案</el-dropdown-item>
-                <el-dropdown-item @click="$router.push('/settings')"><el-icon><Setting /></el-icon> API设置</el-dropdown-item>
-                <el-dropdown-item divided @click="handleLogout"><el-icon><SwitchButton /></el-icon> 退出登录</el-dropdown-item>
+                <el-dropdown-item @click="$router.push('/home/growth')"><el-icon><User /></el-icon>我的档案</el-dropdown-item>
+                <el-dropdown-item @click="$router.push('/init')"><el-icon><Edit /></el-icon>更新档案</el-dropdown-item>
+                <el-dropdown-item @click="$router.push('/home/settings')"><el-icon><Setting /></el-icon>API设置</el-dropdown-item>
+                <el-dropdown-item v-if="isAdmin" @click="$router.push('/home/admin')"><el-icon><DataAnalysis /></el-icon>管理后台</el-dropdown-item>
+                <el-dropdown-item divided @click="handleLogout"><el-icon><SwitchButton /></el-icon>退出</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
         </div>
       </div>
     </header>
+
     <main class="main-content">
       <router-view v-slot="{ Component }">
         <transition name="page" mode="out-in"><component :is="Component" /></transition>
       </router-view>
     </main>
-    <footer class="footer">
-      <div class="footer-inner">
-        <div class="footer-brand"><span class="footer-logo">Z</span><span>智途AI · 大学生成长规划平台</span></div>
-        <p>让每一名大学生，都拥有一份属于自己的大学四年成长路线</p>
-      </div>
-    </footer>
   </div>
 </template>
 
 <script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
-import { onMounted } from 'vue'
-import { HomeFilled,MagicStick,Reading,TrophyBase,Compass,ChatDotRound,DataAnalysis,Document,ArrowDown,User,Edit,Setting,SwitchButton } from '@element-plus/icons-vue'
-const router = useRouter(); const userStore = useUserStore()
-onMounted(async () => { if (!userStore.userInfo) await userStore.fetchUserInfo() })
-function handleLogout() { userStore.logout(); router.push('/login') }
+import { Setting, User, Edit, SwitchButton, Bell, DataAnalysis } from '@element-plus/icons-vue'
+import { getNotificationsApi, getUnreadCountApi, markReadApi, markAllReadApi } from '../api/notification'
+
+const router = useRouter()
+const userStore = useUserStore()
+
+const notifications = ref([])
+const unread = ref(0)
+let pollTimer = null
+
+const isAdmin = computed(() => (userStore.userInfo?.role || localStorage.getItem('role')) === 'ADMIN')
+
+onMounted(async () => {
+  if (!userStore.userInfo) await userStore.fetchUserInfo()
+  await loadUnread()
+  // 通知不是实时性很强的功能，60 秒轮询一次即可
+  pollTimer = setInterval(loadUnread, 60000)
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
+
+async function loadUnread() {
+  try {
+    unread.value = (await getUnreadCountApi()).data?.count || 0
+  } catch (e) {
+    // 静默失败：未读数拿不到不应影响主流程
+  }
+}
+
+async function loadNotifications() {
+  try {
+    notifications.value = (await getNotificationsApi()).data || []
+  } catch (e) {
+    notifications.value = []
+  }
+}
+
+async function handleRead(item) {
+  if (item.isRead) return
+  try {
+    await markReadApi(item.id)
+    item.isRead = true
+    unread.value = Math.max(0, unread.value - 1)
+  } catch (e) {
+    // 失败时保持原状
+  }
+}
+
+async function handleReadAll() {
+  try {
+    await markAllReadApi()
+    notifications.value.forEach(n => { n.isRead = true })
+    unread.value = 0
+  } catch (e) {
+    // 失败时保持原状
+  }
+}
+
+function formatNotifyTime(value) {
+  if (!value) return ''
+  return String(value).replace('T', ' ').substring(5, 16)
+}
+
+function handleLogout() {
+  userStore.logout()
+  router.push('/')
+}
 </script>
 
 <style scoped>
 .main-layout{display:flex;flex-direction:column;min-height:100vh}
-.header{position:sticky;top:0;z-index:100;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid rgba(255,255,255,.2)}
-.header-bg{position:absolute;inset:0;background:linear-gradient(135deg,rgba(108,92,231,.92),rgba(90,75,209,.92));z-index:-1}
-.header-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;padding:0 28px;height:64px}
-.logo{display:flex;align-items:center;cursor:pointer;margin-right:32px;flex-shrink:0}
-.logo-icon{width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;margin-right:10px;transition:all var(--transition)}
-.logo-icon span{color:#fff;font-size:20px;font-weight:800}
-.logo:hover .logo-icon{transform:rotate(-8deg) scale(1.05)}
-.logo-text{display:flex;align-items:baseline;gap:4px}
-.logo-main{color:#fff;font-size:19px;font-weight:700;letter-spacing:1px}
-.logo-sub{color:var(--accent-light);font-size:11px;font-weight:700;background:rgba(85,239,196,.2);padding:2px 6px;border-radius:4px}
+
+.bg-sylva{position:fixed;inset:0;width:100vw;height:100vh;border:none;z-index:0;pointer-events:none;mix-blend-mode:screen;opacity:.55}
+.bg-sylva-fade{position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(13,17,16,.25) 0%,rgba(13,17,16,.55) 60%,rgba(13,17,16,.88) 100%)}
+
+.header{position:sticky;top:0;z-index:100;background:rgba(13,17,16,.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.04)}
+.header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;padding:0 28px;height:52px;gap:20px}
+.logo{display:flex;align-items:center;gap:8px;cursor:pointer}
+.logo-dot{width:5px;height:5px;border-radius:50%;background:var(--signal);animation:breathe 4s ease-in-out infinite}
+.logo-word{font-size:13px;font-weight:500;color:#fff;letter-spacing:.15em}
 .nav{display:flex;gap:2px;flex:1;overflow-x:auto}
 .nav::-webkit-scrollbar{display:none}
-.nav-item{display:flex;align-items:center;gap:6px;color:rgba(255,255,255,.75);padding:8px 14px;border-radius:10px;font-size:13.5px;font-weight:500;transition:all var(--transition);white-space:nowrap;position:relative}
-.nav-item:hover{color:#fff;background:rgba(255,255,255,.12)}
-.nav-item.active{color:#fff;background:rgba(255,255,255,.18);box-shadow:0 2px 12px rgba(0,0,0,.1)}
-.nav-item.active::after{content:'';position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:20px;height:3px;border-radius:2px;background:var(--accent-light)}
-.header-right{margin-left:auto;display:flex;align-items:center;gap:14px}
-.user-chip{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 12px 4px 4px;border-radius:24px;background:rgba(255,255,255,.1);transition:all var(--transition)}
-.user-chip:hover{background:rgba(255,255,255,.2)}
-.user-avatar{border:2px solid rgba(255,255,255,.3)}
-.user-name{color:#fff;font-size:14px;font-weight:500;max-width:80px;overflow:hidden;text-overflow:ellipsis}
-.chevron{color:rgba(255,255,255,.6);font-size:12px}
-.main-content{flex:1;max-width:1440px;width:100%;margin:0 auto;padding:28px}
-.page-enter-active{animation:fadeInUp .3s cubic-bezier(.4,0,.2,1)}
-.page-leave-active{animation:fadeInUp .15s cubic-bezier(.4,0,.2,1) reverse}
-@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.footer{background:#fff;border-top:1px solid var(--border);padding:28px;text-align:center}
-.footer-inner{color:var(--text-muted);font-size:13px}
-.footer-brand{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px}
-.footer-logo{display:inline-flex;width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}
+.nav-item{padding:5px 12px;border-radius:6px;font-size:12.5px;font-weight:400;color:var(--mist);white-space:nowrap;transition:all var(--transition)}
+.nav-item:hover{color:#fff;background:rgba(255,255,255,.03)}
+.nav-item.active{color:var(--signal);background:var(--signal-dim);font-weight:500}
+.header-right{display:flex;align-items:center;gap:4px;margin-left:auto}
+.icon-btn{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--mist);transition:all var(--transition);position:relative}
+.icon-btn:hover{color:#fff;background:rgba(255,255,255,.04)}
+.notify-btn{cursor:pointer}
+.badge{position:absolute;top:1px;right:1px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:#EF5350;color:#fff;font-size:9px;line-height:14px;text-align:center;font-weight:600}
+.user-chip{display:flex;align-items:center;gap:6px;cursor:pointer;padding:2px 8px 2px 2px;border-radius:16px;font-size:13px;color:var(--mist);transition:all var(--transition)}
+.user-chip:hover{background:rgba(255,255,255,.04);color:#fff}
+.main-content{flex:1;max-width:1200px;width:100%;margin:0 auto;padding:24px;position:relative;z-index:1}
+
+/* 通知面板（popover 内容） */
+.notify-panel{max-height:400px;display:flex;flex-direction:column}
+.np-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border-soft);font-size:13px;color:#fff}
+.np-body{overflow-y:auto;margin-top:4px}
+.np-item{padding:9px 10px;border-radius:7px;cursor:pointer;transition:background .2s}
+.np-item:hover{background:rgba(255,255,255,.04)}
+.np-item.unread{background:rgba(139,195,74,.06)}
+.np-title{font-size:13px;color:#fff;font-weight:500;margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.np-item.unread .np-title::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--signal);flex-shrink:0}
+.np-content{font-size:12px;color:var(--mist);line-height:1.55;font-weight:300}
+.np-time{font-size:10px;color:var(--fog);margin-top:4px}
+.np-empty{text-align:center;padding:32px 0;color:var(--fog);font-size:13px}
+
+/* 移动端：导航换行成第二行横向滚动，避免 8 个菜单项被挤压换行错乱 */
+@media (max-width:820px){
+  .header-inner{flex-wrap:wrap;height:auto;min-height:50px;padding:0 14px;gap:8px;padding-top:6px}
+  .logo-word{display:none}
+  .header-right{margin-left:auto}
+  .nav{order:3;flex:1 0 100%;gap:0;padding-bottom:6px}
+  .nav-item{padding:6px 11px;font-size:12px}
+  .main-content{padding:14px}
+  .bg-sylva{opacity:.35}
+}
 </style>

@@ -1,143 +1,35 @@
 <template>
   <div class="auth-page">
-    <div class="auth-bg">
-      <div class="bg-orb orb-1"></div>
-      <div class="bg-orb orb-2"></div>
-      <div class="bg-orb orb-3"></div>
-      <div class="bg-grid"></div>
-    </div>
-
+    <div class="auth-bg"><div class="bg-glow"></div></div>
     <div class="auth-card">
-      <div class="card-brand">
-        <div class="brand-icon">Z</div>
-        <h1>创建账号</h1>
-        <p>加入智途AI，开启你的大学成长之旅</p>
-      </div>
-
-      <el-form ref="formRef" :model="form" :rules="rules" class="auth-form">
-        <el-form-item prop="nickname">
-          <el-input v-model="form.nickname" placeholder="昵称（选填）" size="large"
-            :prefix-icon="User" class="custom-input" />
-        </el-form-item>
-        <el-form-item prop="phone">
-          <el-input v-model="form.phone" placeholder="手机号" size="large"
-            :prefix-icon="Phone" class="custom-input" />
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="密码（至少6位）" size="large"
-            :prefix-icon="Lock" show-password class="custom-input" />
-        </el-form-item>
-        <el-form-item prop="confirmPassword">
-          <el-input v-model="form.confirmPassword" type="password" placeholder="确认密码" size="large"
-            :prefix-icon="Lock" show-password class="custom-input" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" size="large" class="submit-btn" @click="handleRegister" :loading="loading">
-            <span v-if="!loading">注 册</span>
-          </el-button>
-        </el-form-item>
+      <div class="brand"><span class="brand-dot"></span><h1>创建账号</h1><p>开启你的AI成长之旅</p></div>
+      <el-form ref="formRef" :model="form" :rules="rules" @keyup.enter="handleRegister">
+        <div class="fg"><label>手机号</label><el-input v-model="form.phone" placeholder="输入手机号" size="large"/></div>
+        <div class="fg"><label>昵称</label><el-input v-model="form.nickname" placeholder="给自己取个名字" size="large"/></div>
+        <div class="fg"><label>密码</label><el-input v-model="form.password" type="password" placeholder="至少6位" size="large" show-password/></div>
+        <div class="fg"><label>确认密码</label><el-input v-model="form.confirmPassword" type="password" placeholder="再次输入密码" size="large" show-password/></div>
+        <el-button type="primary" size="large" class="submit-btn" @click="handleRegister" :loading="loading">注册</el-button>
       </el-form>
-
-      <div class="card-footer">
-        <span>已有账号？</span>
-        <router-link to="/login" class="link">立即登录 →</router-link>
-      </div>
+      <div class="foot"><span>已有账号？</span><router-link to="/login" class="link">去登录</router-link></div>
     </div>
+    <p class="quote">让每一名大学生，都拥有一份属于自己的大学四年成长路线</p>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '../stores/user'
-import { ElMessage } from 'element-plus'
-import { User, Phone, Lock } from '@element-plus/icons-vue'
-
-const router = useRouter()
-const userStore = useUserStore()
-const loading = ref(false)
-const formRef = ref(null)
-const form = reactive({ phone: '', password: '', confirmPassword: '', nickname: '' })
-
-const validateConfirm = (rule, value, callback) => {
-  if (value !== form.password) callback(new Error('两次密码不一致'))
-  else callback()
-}
-const rules = {
-  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码至少6位', trigger: 'blur' }
-  ],
-  confirmPassword: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
-    { validator: validateConfirm, trigger: 'blur' }
-  ]
-}
-
-async function handleRegister() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
-  loading.value = true
-  try {
-    await userStore.register({
-      phone: form.phone, password: form.password, nickname: form.nickname || undefined
-    })
-    ElMessage.success('注册成功！正在生成你的AI画像...')
-    router.push('/init')
-  } catch (e) {} finally { loading.value = false }
-}
+import { ref,reactive } from 'vue'; import { useRouter } from 'vue-router'; import { useUserStore } from '../stores/user'; import { ElMessage } from 'element-plus'
+const router=useRouter(); const userStore=useUserStore(); const loading=ref(false); const formRef=ref(null)
+const form=reactive({phone:'',nickname:'',password:'',confirmPassword:''}); const rules={phone:[{required:true,message:'请输入手机号',trigger:'blur'}],nickname:[{required:true,message:'请输入昵称',trigger:'blur'}],password:[{required:true,min:6,message:'密码至少6位',trigger:'blur'}],confirmPassword:[{required:true,validator:(r,v,cb)=>v!==form.password?cb(new Error('两次密码不一致')):cb(),trigger:'blur'}]}
+async function handleRegister(){const v=await formRef.value.validate().catch(()=>false);if(!v)return;loading.value=true;try{await userStore.register({phone:form.phone,nickname:form.nickname,password:form.password});ElMessage.success('注册成功！');router.push('/init')}catch(e){}finally{loading.value=false}}
 </script>
 
 <style scoped>
-.auth-page {
-  min-height: 100vh; display: flex; align-items: center; justify-content: center;
-  position: relative; overflow: hidden;
-}
-.auth-bg { position: absolute; inset: 0; z-index: 0; }
-.bg-orb {
-  position: absolute; border-radius: 50%; filter: blur(80px); opacity: .5;
-  animation: float 8s ease-in-out infinite;
-}
-.orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(108,92,231,.4), transparent); top: -15%; right: -10%; }
-.orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(0,206,201,.35), transparent); bottom: -10%; left: -8%; animation-delay: -3s; }
-.orb-3 { width: 350px; height: 350px; background: radial-gradient(circle, rgba(254,202,87,.3), transparent); top: 40%; left: 50%; animation-delay: -6s; }
-.bg-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(108,92,231,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(108,92,231,.04) 1px, transparent 1px); background-size: 60px 60px; }
-@keyframes float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -30px) scale(1.05); }
-  66% { transform: translate(-20px, 20px) scale(.95); }
-}
-
-.auth-card {
-  position: relative; z-index: 1; width: 420px; padding: 40px 42px;
-  background: rgba(255,255,255,.85); backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border-radius: var(--radius-xl); border: 1px solid rgba(255,255,255,.6);
-  box-shadow: var(--shadow-xl);
-}
-.card-brand { text-align: center; margin-bottom: 32px; }
-.brand-icon {
-  display: inline-flex; width: 56px; height: 56px; border-radius: 16px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  align-items: center; justify-content: center;
-  color: #fff; font-size: 28px; font-weight: 800;
-  margin-bottom: 14px; box-shadow: 0 8px 24px rgba(108,92,231,.3);
-  animation: pulse 3s infinite;
-}
-.card-brand h1 { font-size: 24px; color: var(--text); font-weight: 800; letter-spacing: 2px; }
-.card-brand p { color: var(--text-secondary); font-size: 13px; margin-top: 6px; }
-
-.custom-input :deep(.el-input__wrapper) {
-  border-radius: 12px; background: rgba(108,92,231,.04);
-  box-shadow: none !important; border: 1.5px solid transparent !important;
-  transition: all var(--transition);
-}
-.custom-input :deep(.el-input__wrapper:hover) { border-color: var(--primary-light) !important; }
-.custom-input :deep(.el-input__wrapper.is-focus) { border-color: var(--primary) !important; background: #fff; box-shadow: 0 0 0 3px rgba(108,92,231,.1) !important; }
-
-.submit-btn { width: 100%; height: 48px; border-radius: 12px !important; font-size: 16px !important; letter-spacing: 4px; }
-
-.card-footer { text-align: center; margin-top: 24px; font-size: 14px; color: var(--text-secondary); }
-.link { color: var(--primary); margin-left: 6px; font-weight: 600; }
+.auth-page{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--void);position:relative;padding:24px;gap:20px}
+.auth-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}.bg-glow{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(139,195,74,.04) 0%,transparent 70%)}
+.auth-card{width:380px;padding:36px 34px 28px;background:var(--glass);border:1px solid var(--border);border-radius:14px;position:relative;z-index:1;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.brand{text-align:center;margin-bottom:28px}.brand-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--signal);margin-bottom:14px;animation:breathe 4s ease-in-out infinite}.brand h1{font-size:22px;font-weight:300;color:#fff;letter-spacing:.04em}.brand p{font-size:12px;color:var(--fog);margin-top:4px;font-weight:300}
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}.fg label{font-size:11px;font-weight:500;color:var(--mist);letter-spacing:.06em;text-transform:uppercase}
+.submit-btn{width:100%;height:44px;font-size:14px!important;font-weight:400!important;letter-spacing:.04em}
+.foot{text-align:center;margin-top:16px;font-size:13px;color:var(--fog);font-weight:300}.link{color:var(--signal);margin-left:4px;font-weight:400}.link:hover{opacity:.8}
+.quote{font-size:12px;color:var(--fog);text-align:center;position:relative;z-index:1;font-weight:300}
 </style>

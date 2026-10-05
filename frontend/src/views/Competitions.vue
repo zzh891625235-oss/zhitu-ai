@@ -57,7 +57,7 @@
               <div class="countdown-text" v-if="getDaysLeft(comp) > 0">距截止 <strong>{{ getDaysLeft(comp) }}</strong> 天</div>
               <div class="countdown-text expired" v-else>已截止</div>
               <el-progress :percentage="countdownPercent(comp)" :stroke-width="6"
-                :color="getDaysLeft(comp) > 30 ? '#00D2A0' : getDaysLeft(comp) > 7 ? '#FECA57' : '#FF6B6B'" :show-text="false" />
+                :color="getDaysLeft(comp) > 30 ? '#66BB6A' : getDaysLeft(comp) > 7 ? 'var(--amber)' : '#EF5350'" :show-text="false" />
             </div>
           </div>
           <div class="card-footer">
@@ -154,7 +154,7 @@ function diffLabel(d) {
   if (d === 'BEGINNER') return '入门'; if (d === 'INTERMEDIATE') return '进阶'; return '高级'
 }
 function scoreColor(s) {
-  if (s >= 80) return '#00D2A0'; if (s >= 60) return '#6C5CE7'; return '#FECA57'
+  if (s >= 80) return '#66BB6A'; if (s >= 60) return 'var(--signal)'; return 'var(--amber)'
 }
 function getDaysLeft(comp) {
   if (!comp.registrationEnd) return 0
@@ -195,17 +195,17 @@ onMounted(async () => {
 
 <style scoped>
 .comp-page { max-width: 1200px; margin: 0 auto; }
-.page-hero { text-align: center; padding: 36px 0 24px; }
+.page-hero { text-align: center; padding: 36px 0 20px; }
 .page-hero h1 { font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .page-hero p { color: var(--text-secondary); margin-top: 6px; font-size: 14px; }
 
 /* 标签切换 */
-.tab-bar { display: flex; justify-content: center; gap: 4px; margin-bottom: 28px; background: #F0F1F5; border-radius: 12px; padding: 4px; width: fit-content; margin-left: auto; margin-right: auto; }
+.tab-bar { display: flex; justify-content: center; gap: 4px; margin-bottom: 28px; background: rgba(255,255,255,.04); border-radius: 12px; padding: 4px; width: fit-content; margin-left: auto; margin-right: auto; }
 .tab-item {
   display: flex; align-items: center; gap: 6px; padding: 10px 22px; border-radius: 10px;
   cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-secondary); transition: all .2s;
 }
-.tab-item.active { background: #fff; color: var(--primary); box-shadow: var(--shadow-sm); }
+.tab-item.active { background:var(--glass); color: var(--primary); box-shadow: var(--shadow-sm); }
 .tab-item:hover:not(.active) { color: var(--text); }
 .tab-badge {
   background: var(--primary); color: #fff; border-radius: 10px;
@@ -215,13 +215,13 @@ onMounted(async () => {
 .filter-bar { display: flex; gap: 12px; margin-bottom: 28px; justify-content: center; }
 .search-input { width: 320px; }
 
-.comp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 22px; }
-.comp-card { background: #fff; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); transition: all var(--transition); }
+.comp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 22px; }
+.comp-card { background:var(--glass); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); transition: all var(--transition); }
 .comp-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
 .card-accent { height: 4px; }
-.card-accent.diff-BEGINNER { background: linear-gradient(90deg, #00D2A0, #55EFC4); }
-.card-accent.diff-INTERMEDIATE { background: linear-gradient(90deg, #FECA57, #FF9F43); }
-.card-accent.diff-ADVANCED { background: linear-gradient(90deg, #FF6B6B, #EE5A24); }
+.card-accent.diff-BEGINNER { background: linear-gradient(90deg, #66BB6A, #55EFC4); }
+.card-accent.diff-INTERMEDIATE { background: linear-gradient(90deg, var(--amber), #FF9F43); }
+.card-accent.diff-ADVANCED { background: linear-gradient(90deg, #EF5350, #EE5A24); }
 .card-body { padding: 20px 22px; }
 .card-header-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .card-type { font-size: 12px; color: var(--text-muted); }
@@ -234,8 +234,8 @@ onMounted(async () => {
 .countdown-bar { }
 .countdown-text { font-size: 13px; margin-bottom: 4px; color: var(--text-secondary); }
 .countdown-text strong { color: var(--primary); font-size: 16px; }
-.countdown-text.expired { color: #FF6B6B; }
-.card-footer { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-top: 1px solid var(--border); background: #FAFBFC; }
+.countdown-text.expired { color: #EF5350; }
+.card-footer { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-top: 1px solid var(--border); background: rgba(255,255,255,.02); }
 
 /* AI推荐 */
 .rec-loading { text-align: center; padding: 80px 0; }
@@ -245,7 +245,7 @@ onMounted(async () => {
 
 .rec-grid { display: flex; flex-direction: column; gap: 20px; }
 .rec-card {
-  display: flex; gap: 20px; background: #fff; border-radius: var(--radius-lg);
+  display: flex; gap: 20px; background:var(--glass); border-radius: var(--radius-lg);
   border: 1px solid var(--border); padding: 24px; transition: all var(--transition);
 }
 .rec-card:hover { box-shadow: var(--shadow-lg); }
@@ -267,7 +267,7 @@ onMounted(async () => {
 .score-label { position: absolute; bottom: 16px; font-size: 10px; color: var(--text-muted); }
 
 .rec-tags { display: flex; gap: 8px; margin-bottom: 14px; }
-.rec-reasons { background: #F8F9FB; border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 14px; }
+.rec-reasons { background: rgba(255,255,255,.025); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 14px; }
 .reason-title { font-weight: 600; font-size: 13px; margin-bottom: 10px; }
 .reason-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
 .reason-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }

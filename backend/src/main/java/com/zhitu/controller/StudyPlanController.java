@@ -38,10 +38,25 @@ public class StudyPlanController {
     public Result<Map<String, Object>> record(Authentication auth,
                                                @RequestBody Map<String, Object> body) {
         Long userId = (Long) auth.getPrincipal();
-        String content = (String) body.getOrDefault("content", "");
-        int minutes = (int) body.getOrDefault("minutes", 30);
-        int courseId = (int) body.getOrDefault("courseId", 1);
+        String content = body.get("content") == null ? "" : String.valueOf(body.get("content"));
+        int minutes = toInt(body.get("minutes"), 30);
+        int courseId = toInt(body.get("courseId"), 1);
         Map<String, Object> analysis = planService.recordAndAnalyze(userId, content, minutes, courseId);
         return Result.success("学习已记录，AI分析完成", analysis);
+    }
+
+    /** 宽松地把请求体中的值转成 int，避免前端传 null 或字符串时抛 ClassCastException */
+    private int toInt(Object value, int defaultValue) {
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Integer.parseInt(((String) value).trim());
+            } catch (NumberFormatException ignored) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
     }
 }

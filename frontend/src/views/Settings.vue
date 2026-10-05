@@ -1,8 +1,8 @@
 <template>
   <div class="settings-page">
     <div class="page-hero">
-      <h1><el-icon><Setting /></el-icon> API 设置</h1>
-      <p>配置你自己的 AI API Key，让画像、规划、助手真正跑起来</p>
+      <h1>API 设置</h1>
+      <p>配置你自己的 AI Key，让画像、规划、助手真正跑起来</p>
     </div>
 
     <el-card shadow="never" class="settings-card">
@@ -28,9 +28,8 @@
       <el-form label-width="100px" class="settings-form">
         <el-form-item label="API Key">
           <el-input v-model="form.apiKey" type="password" show-password
-            placeholder="sk-xxxxxxxxxxxxxxxx"
-            size="large" class="key-input" />
-          <div class="form-tip">你的 Key 仅保存在你自己的账号下，不会共享给其他用户</div>
+            placeholder="sk-xxxxxxxxxxxxxxxx" size="large" />
+          <div class="form-tip">你的 Key 仅保存在你自己的账号下</div>
         </el-form-item>
         <el-form-item label="API 地址">
           <el-input v-model="form.apiUrl" size="large" />
@@ -61,7 +60,7 @@
     </el-card>
 
     <div class="info-card">
-      <h3>💡 如何获取 API Key？</h3>
+      <h3>如何获取 API Key？</h3>
       <div class="info-steps">
         <div class="info-step">
           <span class="is-num">1</span>
@@ -74,7 +73,7 @@
           <span class="is-num">2</span>
           <div>
             <b>通义千问</b>
-            <p>访问 <a href="https://dashscope.console.aliyun.com" target="_blank">阿里云灵积</a>，开通模型服务获取 Key。有免费额度。</p>
+            <p>访问 <a href="https://dashscope.console.aliyun.com" target="_blank">阿里云灵积</a>，开通模型服务获取 Key。</p>
           </div>
         </div>
         <div class="info-step">
@@ -91,7 +90,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Setting, Connection, SuccessFilled, WarningFilled } from '@element-plus/icons-vue'
+import { Connection, SuccessFilled, WarningFilled } from '@element-plus/icons-vue'
 import { getSettingsApi, saveSettingsApi, testConnectionApi } from '../api/settings'
 import { ElMessage } from 'element-plus'
 
@@ -149,38 +148,61 @@ async function handleTest() {
 </script>
 
 <style scoped>
-.settings-page { max-width: 700px; margin: 0 auto; }
-.page-hero { text-align: center; padding: 36px 0 24px; }
-.page-hero h1 { font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
-.page-hero p { color: var(--text-secondary); margin-top: 6px; font-size: 14px; }
+.settings-page { max-width: 680px; margin: 0 auto; }
+.page-hero { text-align: center; padding: 36px 0 20px; }
+.page-hero h1 { font-size: 26px; font-weight: 700; color: var(--slate-900); }
+.page-hero p { color: var(--slate-500); margin-top: 6px; font-size: 14px; }
 
 .settings-card { border-radius: var(--radius-lg); margin-bottom: 24px; }
 
 .provider-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 28px; }
-.p-tab { padding: 12px 10px; border-radius: var(--radius-sm); border: 2px solid var(--border); cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all .2s; }
-.p-tab:hover { border-color: var(--primary-light); }
-.p-tab.active { border-color: var(--primary); background: rgba(108,92,231,.04); }
+.p-tab {
+  padding: 12px 10px; border-radius: var(--radius-sm);
+  border: 2px solid var(--border); cursor: pointer;
+  display: flex; align-items: center; gap: 10px; transition: all .2s;
+}
+.p-tab:hover { border-color: var(--ocean-light); }
+.p-tab.active { border-color: var(--signal); background: var(--ocean-pale); }
 .pt-icon { font-size: 24px; }
-.p-tab b { display: block; font-size: 13px; }
-.p-tab small { display: block; font-size: 11px; color: var(--text-muted); }
+.p-tab b { display: block; font-size: 13px; color: var(--slate-900); }
+.p-tab small { display: block; font-size: 11px; color: var(--slate-400); }
 
-.form-tip { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.form-tip { font-size: 12px; color: var(--slate-400); margin-top: 4px; }
 .settings-actions { display: flex; gap: 12px; justify-content: center; margin-bottom: 16px; }
-.test-result { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
-.test-result.ok { background: rgba(0,210,160,.1); color: #008F6B; }
-.test-result.error { background: rgba(255,107,107,.1); color: #C0392B; }
+.test-result {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px;
+}
+.test-result.ok { background: var(--teal-pale); color: #66BB6A; }
+.test-result.error { background: var(--rose-pale); color: #EF5350; }
 
-.status-badge { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-radius: 8px; font-size: 13px; background: #FFF3CD; color: #856404; }
-.status-badge.active { background: rgba(0,210,160,.1); color: #008F6B; }
-.sb-dot { width: 8px; height: 8px; border-radius: 50%; background: #856404; }
-.status-badge.active .sb-dot { background: #00D2A0; }
+.status-badge {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-radius: 8px; font-size: 13px;
+  background: var(--amber-pale); color: #F5C97A;
+}
+.status-badge.active { background: var(--teal-pale); color: #66BB6A; }
+.sb-dot { width: 8px; height: 8px; border-radius: 50%; background: #F5A524; }
+.status-badge.active .sb-dot { background: #66BB6A; }
 
-.info-card { background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 24px; }
-.info-card h3 { font-size: 16px; margin-bottom: 16px; }
+.info-card { background:var(--glass); border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 24px; }
+.info-card h3 { font-size: 16px; color: var(--slate-900); margin-bottom: 16px; }
 .info-steps { display: flex; flex-direction: column; gap: 14px; }
 .info-step { display: flex; gap: 12px; font-size: 14px; }
-.is-num { width: 28px; height: 28px; border-radius: 8px; background: rgba(108,92,231,.1); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
-.info-step b { display: block; margin-bottom: 2px; }
-.info-step p { color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
-.info-step a { color: var(--primary); }
+.is-num {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--ocean-pale); color: var(--signal);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px; flex-shrink: 0;
+}
+.info-step b { display: block; margin-bottom: 2px; color: var(--slate-900); }
+.info-step p { color: var(--slate-500); font-size: 13px; line-height: 1.6; }
+.info-step a { color: var(--signal); }
+
+@media (max-width:820px) {
+  .provider-tabs { grid-template-columns: repeat(2, 1fr); }
+  .page-hero h1 { font-size: 22px; }
+  .settings-actions { flex-direction: column; }
+  .settings-actions .el-button { width: 100%; }
+}
 </style>

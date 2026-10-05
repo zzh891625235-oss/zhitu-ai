@@ -1,14 +1,14 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
     name: zhitu-ai
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/zhitu_ai?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:zhitu_ai}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
@@ -16,20 +16,32 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 生产环境建议改为 org.apache.ibatis.logging.nologging.NoLoggingImpl 关闭 SQL 日志
+    log-impl: ${SQL_LOG_IMPL:org.apache.ibatis.logging.stdout.StdOutImpl}
   global-config:
     db-config:
       id-type: auto
 
-# AI服务配置 (支持DeepSeek/OpenAI兼容API)
+# ------------------------------------------------------------
+# AI 服务配置
+# 支持任何兼容 OpenAI Chat Completions 协议的服务：
+#   DeepSeek    https://api.deepseek.com/v1                       deepseek-chat
+#   OpenAI      https://api.openai.com/v1                         gpt-4o-mini
+#   通义千问    https://dashscope.aliyuncs.com/compatible-mode/v1  qwen-plus
+#
+# api-key 留空时后端会降级为「离线模板模式」：功能仍可用（基于规则生成
+# 画像/规划），但前端会明确标注结果不是真实大模型输出，不会伪装成 AI 结果。
+# 每位用户也可以在「API 设置」页填写自己的 Key，其优先级高于此处配置。
+# ------------------------------------------------------------
 ai:
-  provider: deepseek
-  api-key: ${AI_API_KEY:your-api-key-here}
-  api-url: https://api.deepseek.com/v1
-  model: deepseek-chat
+  provider: ${AI_PROVIDER:deepseek}
+  api-key: ${AI_API_KEY:}
+  api-url: ${AI_API_URL:https://api.deepseek.com/v1}
+  model: ${AI_MODEL:deepseek-chat}
+  timeout: ${AI_TIMEOUT:60000}
+  max-retries: ${AI_MAX_RETRIES:2}
 
-# JWT配置
+# JWT 配置（生产环境请务必替换 secret）
 jwt:
-  secret: zhitu-ai-jwt-secret-key-2024-please-change-in-production
-  expiration: 86400000
-
+  secret: ${JWT_SECRET:zhitu-ai-jwt-secret-key-2024-please-change-in-production}
+  expiration: ${JWT_EXPIRATION:86400000}

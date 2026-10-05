@@ -1,32 +1,38 @@
- # === Java / Maven ===
- target/
- *.class
- *.jar
- *.war
- *.log
- .mvn/
- mvnw*
+# === Java / Maven ===
+target/
+*.class
+*.jar
+*.war
+*.log
+.mvn/
+mvnw*
 
- # === Node / Vue ===
- node_modules/
- dist/
- .env.local
- .env.*.local
- *.local
+# === Node / Vue ===
+node_modules/
+dist/
+.env.local
+.env.*.local
+*.local
 
- # === IDE ===
- .idea/
- *.iml
- .vscode/
- *.swp
- *.swo
+# === IDE ===
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
 
- # === OS ===
- .DS_Store
- Thumbs.db
+# === OS ===
+.DS_Store
+Thumbs.db
 
- # === 敏感信息 ===
- application-prod.yml
- .env.production
- *.pem
+# === 敏感信息（不要把真实 Key 提交进仓库）===
+.env
+.env.production
+application-prod.yml
+application-local.yml
+*.pem
 
+# === 本地临时文件 ===
+.tmp/
+.vite-tmp/
+logs/

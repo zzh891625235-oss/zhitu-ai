@@ -5,9 +5,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
 import com.zhitu.entity.AiPlan;
+import com.zhitu.entity.Major;
 import com.zhitu.entity.StudentProfile;
 import com.zhitu.entity.User;
 import com.zhitu.mapper.AiPlanMapper;
+import com.zhitu.mapper.MajorMapper;
 import com.zhitu.mapper.StudentProfileMapper;
 import com.zhitu.mapper.UserMapper;
 import com.zhitu.service.FourYearPlanService;
@@ -22,14 +24,17 @@ public class FourYearPlanServiceImpl implements FourYearPlanService {
     private final StudentProfileMapper profileMapper;
     private final UserMapper userMapper;
     private final AiPlanMapper aiPlanMapper;
+    private final MajorMapper majorMapper;
     private final AIService aiService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public FourYearPlanServiceImpl(StudentProfileMapper profileMapper, UserMapper userMapper,
-                                    AiPlanMapper aiPlanMapper, AIService aiService) {
+                                    AiPlanMapper aiPlanMapper, MajorMapper majorMapper,
+                                    AIService aiService) {
         this.profileMapper = profileMapper;
         this.userMapper = userMapper;
         this.aiPlanMapper = aiPlanMapper;
+        this.majorMapper = majorMapper;
         this.aiService = aiService;
     }
 
@@ -112,7 +117,7 @@ public class FourYearPlanServiceImpl implements FourYearPlanService {
         sb.append("学生信息：\n");
         sb.append("昵称：").append(u.getNickname()).append("\n");
         sb.append("学校：").append(p.getSchool()).append("\n");
-        sb.append("专业：计算机科学与技术\n");
+        sb.append("专业：").append(resolveMajorName(p.getMajorId())).append("\n");
         sb.append("年级：").append(p.getGrade()).append("\n");
         sb.append("成绩：").append(p.getGpa()).append("\n");
         sb.append("编程基础：").append(p.getProgrammingLevel()).append("\n");
@@ -125,6 +130,19 @@ public class FourYearPlanServiceImpl implements FourYearPlanService {
     private String extractJson(String text) {
         int s = text.indexOf("{"), e = text.lastIndexOf("}");
         return (s >= 0 && e > s) ? text.substring(s, e + 1) : "{}";
+    }
+
+    /** 查询专业名称；专业表不可用时回退为「未填写」，避免影响规划生成 */
+    private String resolveMajorName(Long majorId) {
+        if (majorId == null) {
+            return "未填写";
+        }
+        try {
+            Major major = majorMapper.selectById(majorId);
+            return major == null ? "未填写" : major.getName();
+        } catch (Exception e) {
+            return "未填写";
+        }
     }
 
     private Map<String, Object> buildFallbackPlan(StudentProfile p) {

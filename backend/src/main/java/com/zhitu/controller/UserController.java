@@ -20,6 +20,10 @@ public class UserController {
     public Result<User> getProfile(Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         User user = userService.getById(userId);
+        if (user == null) {
+            return Result.error(401, "用户不存在或登录状态已失效");
+        }
+        // 绝不把密码哈希返回给前端
         user.setPassword(null);
         return Result.success(user);
     }

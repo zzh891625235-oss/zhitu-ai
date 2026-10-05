@@ -19,17 +19,20 @@ public class ResumeServiceImpl implements ResumeService {
     private final LearningRecordMapper learnMapper;
     private final GrowthRecordMapper growthMapper;
     private final ResumeMapper resumeMapper;
+    private final MajorMapper majorMapper;
     private final AIService aiService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public ResumeServiceImpl(StudentProfileMapper profileMapper, UserMapper userMapper,
                               LearningRecordMapper learnMapper, GrowthRecordMapper growthMapper,
-                              ResumeMapper resumeMapper, AIService aiService) {
+                              ResumeMapper resumeMapper, MajorMapper majorMapper,
+                              AIService aiService) {
         this.profileMapper = profileMapper;
         this.userMapper = userMapper;
         this.learnMapper = learnMapper;
         this.growthMapper = growthMapper;
         this.resumeMapper = resumeMapper;
+        this.majorMapper = majorMapper;
         this.aiService = aiService;
     }
 
@@ -86,7 +89,9 @@ public class ResumeServiceImpl implements ResumeService {
     private String buildUserMessage(StudentProfile p, User u, List<LearningRecord> lr, List<GrowthRecord> gr) {
         StringBuilder sb = new StringBuilder();
         sb.append("学生：").append(u.getNickname()).append("\n");
-        sb.append("学校:").append(p.getSchool()).append(" 专业:计算机科学与技术 年级:").append(p.getGrade()).append("\n");
+        sb.append("学校:").append(p.getSchool())
+          .append(" 专业:").append(resolveMajorName(p.getMajorId()))
+          .append(" 年级:").append(p.getGrade()).append("\n");
         sb.append("编程:").append(p.getProgrammingLevel()).append(" Java:").append(p.getJavaLevel())
           .append(" Python:").append(p.getPythonLevel()).append(" 英语:").append(p.getEnglishLevel()).append("\n");
         sb.append("兴趣:").append(p.getInterests()).append(" 目标:").append(p.getCareerGoal()).append("\n");
@@ -112,7 +117,7 @@ public class ResumeServiceImpl implements ResumeService {
 
         Map<String, String> edu = new LinkedHashMap<>();
         edu.put("school", p.getSchool());
-        edu.put("major", "计算机科学与技术");
+        edu.put("major", resolveMajorName(p.getMajorId()));
         edu.put("grade", p.getGrade());
         resume.put("education", edu);
 
@@ -148,6 +153,19 @@ public class ResumeServiceImpl implements ResumeService {
 
         saveResume(userId, resume);
         return resume;
+    }
+
+    /** 查询专业名称；专业表不可用时回退为「未填写」，不影响简历生成 */
+    private String resolveMajorName(Long majorId) {
+        if (majorId == null) {
+            return "未填写";
+        }
+        try {
+            Major major = majorMapper.selectById(majorId);
+            return major == null ? "未填写" : major.getName();
+        } catch (Exception e) {
+            return "未填写";
+        }
     }
 }
 

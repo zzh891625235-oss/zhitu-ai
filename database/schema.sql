@@ -1,6 +1,19 @@
 -- ============================================================
--- 智途AI - 大学生成长规划平台 数据库完整初始化脚本
--- 数据库: MySQL 8.x / 编码: utf8mb4
+-- 智途AI · 大学生成长规划平台
+-- 01 / 03 —— 数据库与表结构（DDL）
+-- 数据库: MySQL 8.x    编码: utf8mb4
+--
+-- 执行顺序（三个脚本都要执行，缺一不可）：
+--   1. schema.sql   建库建表        ← 本文件
+--   2. majors.sql   专业字典数据（12 个学科门类）
+--   3. data.sql     课程 / 竞赛 / 知识点 / 演示账号
+--
+-- 一键执行：
+--   Windows :  powershell -ExecutionPolicy Bypass -File scripts/init-db.ps1
+--   macOS/Linux: bash scripts/init-db.sh
+--   手动    :  mysql -uroot -p < schema.sql  （依次执行三个文件）
+--
+-- 本文件只负责结构，不含任何业务数据，可安全重复执行。
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS zhitu_ai DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -11,38 +24,54 @@ USE zhitu_ai;
 -- ============================================================
 CREATE TABLE IF NOT EXISTS user (
     id BIGINT NOT NULL AUTO_INCREMENT,
-    phone VARCHAR(20) NOT NULL,
-    password VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL COMMENT '手机号（登录账号）',
+    password VARCHAR(255) NOT NULL COMMENT 'BCrypt 加密后的密码',
     nickname VARCHAR(50) DEFAULT NULL,
     avatar VARCHAR(500) DEFAULT NULL,
-    role VARCHAR(20) DEFAULT 'STUDENT',
+    role VARCHAR(20) DEFAULT 'STUDENT' COMMENT 'STUDENT / ADMIN',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id), UNIQUE KEY uk_phone (phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 专业表
+-- 用户级 AI 配置表
+-- 「API 设置」页面依赖此表：用户可用自己的 Key 调用大模型
+-- ============================================================
+CREATE TABLE IF NOT EXISTS user_settings (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    api_key VARCHAR(255) DEFAULT NULL COMMENT '用户自备的 API Key',
+    api_url VARCHAR(255) DEFAULT NULL COMMENT '兼容 OpenAI 协议的接口地址',
+    model VARCHAR(100) DEFAULT NULL COMMENT '模型名，如 deepseek-chat',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id), UNIQUE KEY uk_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 专业字典表（数据见 majors.sql）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS major (
     id BIGINT NOT NULL AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    category VARCHAR(50),
+    category VARCHAR(50) COMMENT '学科门类：工学 / 理学 / 医学 ...',
     sort_order INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id), UNIQUE KEY uk_major_name (name), KEY idx_category (category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
 -- 学生档案表
+-- major_id 关联 major.id（后端统一使用专业表主键，勿再自行拼接 ID）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS student_profile (
     id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
     school VARCHAR(100),
-    major_id BIGINT,
+    major_id BIGINT COMMENT '关联 major.id',
     grade VARCHAR(20),
     gpa VARCHAR(10),
     programming_level VARCHAR(20),
@@ -54,9 +83,9 @@ CREATE TABLE IF NOT EXISTS student_profile (
     web_level VARCHAR(20),
     ai_level VARCHAR(20),
     english_level VARCHAR(20),
-    interests TEXT,
+    interests TEXT COMMENT 'JSON 数组字符串',
     career_goal VARCHAR(50),
-    ai_portrait JSON,
+    ai_portrait JSON COMMENT 'AI 生成的学生画像',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
@@ -65,24 +94,26 @@ CREATE TABLE IF NOT EXISTS student_profile (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 课程表
+-- 课程表（专业学习地图）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS course (
     id BIGINT NOT NULL AUTO_INCREMENT,
-    major_id BIGINT,
+    major_id BIGINT COMMENT '关联 major.id',
     name VARCHAR(200) NOT NULL,
     description TEXT,
-    difficulty VARCHAR(20) DEFAULT 'BEGINNER',
+    difficulty VARCHAR(20) DEFAULT 'BEGINNER' COMMENT 'BEGINNER / INTERMEDIATE / ADVANCED',
     semester VARCHAR(20),
     category VARCHAR(50),
     sort_order INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id), KEY idx_major_id (major_id)
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_course_major_name (major_id, name),
+    KEY idx_major_id (major_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 知识点表
+-- 知识点表（课程下的学习节点）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS knowledge_point (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -103,8 +134,8 @@ CREATE TABLE IF NOT EXISTS competition (
     id BIGINT NOT NULL AUTO_INCREMENT,
     name VARCHAR(200) NOT NULL,
     description TEXT,
-    type VARCHAR(50),
-    suitable_major VARCHAR(500),
+    type VARCHAR(50) COMMENT '算法编程 / 数学建模 / 创新创业 ...',
+    suitable_major VARCHAR(500) COMMENT 'JSON 数组：适配专业',
     suitable_grade VARCHAR(200),
     registration_start DATE,
     registration_end DATE,
@@ -112,20 +143,20 @@ CREATE TABLE IF NOT EXISTS competition (
     competition_end DATE,
     difficulty VARCHAR(20) DEFAULT 'EASY',
     official_url VARCHAR(500),
-    recommend_days INT DEFAULT 30,
+    recommend_days INT DEFAULT 30 COMMENT '建议提前备赛天数',
     status VARCHAR(20) DEFAULT 'ACTIVE',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id), UNIQUE KEY uk_competition_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- AI规划表
+-- AI 规划表（四年规划 / 动态学习计划 / 竞赛推荐结果）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS ai_plan (
     id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
-    plan_type VARCHAR(50) NOT NULL,
+    plan_type VARCHAR(50) NOT NULL COMMENT 'FOUR_YEAR / STUDY / COMPETITION',
     content JSON,
     start_date DATE,
     end_date DATE,
@@ -136,7 +167,7 @@ CREATE TABLE IF NOT EXISTS ai_plan (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 学习记录表
+-- 学习记录表（课程进度）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS learning_record (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -145,14 +176,16 @@ CREATE TABLE IF NOT EXISTS learning_record (
     knowledge_point_id BIGINT,
     progress INT DEFAULT 0,
     study_minutes INT DEFAULT 0,
-    status VARCHAR(20) DEFAULT 'IN_PROGRESS',
+    status VARCHAR(20) DEFAULT 'IN_PROGRESS' COMMENT 'IN_PROGRESS / COMPLETED',
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id), KEY idx_user_record (user_id, created_at)
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user_course (user_id, course_id),
+    KEY idx_user_record (user_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 学习计划表
+-- 每日学习计划表（打卡 + AI 动态调整）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS study_plan (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -167,12 +200,12 @@ CREATE TABLE IF NOT EXISTS study_plan (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 成长档案表
+-- 成长档案表（项目 / 竞赛 / 证书 / 实习 / 荣誉）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS growth_record (
     id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
-    record_type VARCHAR(50) NOT NULL,
+    record_type VARCHAR(50) NOT NULL COMMENT 'PROJECT / COMPETITION / CERTIFICATE / INTERNSHIP / HONOR',
     title VARCHAR(200) NOT NULL,
     description TEXT,
     record_date DATE,
@@ -182,12 +215,12 @@ CREATE TABLE IF NOT EXISTS growth_record (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- AI对话记录表
+-- AI 对话记录表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS ai_chat (
     id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
-    chat_type VARCHAR(50) DEFAULT 'GENERAL',
+    chat_type VARCHAR(50) DEFAULT 'GENERAL' COMMENT 'GENERAL / LEARNING / CAREER / COMPETITION / INTERVIEW',
     question TEXT NOT NULL,
     answer TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -195,7 +228,7 @@ CREATE TABLE IF NOT EXISTS ai_chat (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 简历表
+-- AI 简历表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS resume (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -208,7 +241,7 @@ CREATE TABLE IF NOT EXISTS resume (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 通知表
+-- 通知表（竞赛报名截止、计划提醒等站内信）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS notification (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -220,38 +253,6 @@ CREATE TABLE IF NOT EXISTS notification (
     PRIMARY KEY (id), KEY idx_user_read (user_id, is_read)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
 -- ============================================================
--- 智途AI 种子数据
+-- 结构建立完成，请继续执行 majors.sql 与 data.sql
 -- ============================================================
-USE zhitu_ai;
-
-INSERT INTO major (name, description, category, sort_order) VALUES
-('计算机科学与技术', '涵盖计算机基础理论、编程、算法、系统设计等', '工学', 1),
-('软件工程', '涵盖软件开发方法、软件项目管理、软件测试等', '工学', 2),
-('人工智能', '涵盖机器学习、深度学习、自然语言处理、计算机视觉等', '工学', 3),
-('大数据', '涵盖数据采集、处理、分析、可视化等', '工学', 4),
-('电子信息工程', '涵盖电子技术、信号处理、通信原理等', '工学', 5);
-
-INSERT INTO course (major_id, name, description, difficulty, semester, category, sort_order) VALUES
-(1, 'C语言程序设计', 'C语言基础语法、指针、结构体、文件操作', 'BEGINNER', '大一上', '编程基础', 1),
-(1, 'Python程序设计', 'Python基础语法、函数、面向对象、常用库', 'BEGINNER', '大一下', '编程基础', 2),
-(1, '数据结构', '线性表、栈、队列、树、图、查找、排序', 'INTERMEDIATE', '大二上', '核心基础', 3),
-(1, '算法设计与分析', '分治、贪心、动态规划、回溯', 'ADVANCED', '大二下', '核心基础', 4),
-(1, '数据库原理', '关系模型、SQL、范式、事务、索引优化', 'INTERMEDIATE', '大二上', '核心基础', 5),
-(1, 'Java程序设计', 'Java基础、面向对象、集合、IO、多线程', 'INTERMEDIATE', '大二上', '编程语言', 6),
-(1, 'Web前端开发', 'HTML/CSS/JavaScript/Vue.js', 'INTERMEDIATE', '大二下', 'Web开发', 7),
-(1, 'Spring Boot框架', 'Spring Boot核心、MVC、MyBatis、RESTful API', 'INTERMEDIATE', '大二下', '后端开发', 8),
-(1, '操作系统', '进程管理、内存管理、文件系统', 'ADVANCED', '大三上', '核心基础', 9),
-(1, '计算机网络', 'TCP/IP、HTTP、DNS、网络安全', 'ADVANCED', '大三上', '核心基础', 10),
-(1, '机器学习', '监督学习、无监督学习、神经网络', 'ADVANCED', '大三下', 'AI方向', 11),
-(1, '软件工程', '需求分析、设计模式、软件测试', 'INTERMEDIATE', '大三上', '工程实践', 12);
-
-INSERT INTO competition (name, description, type, suitable_major, suitable_grade, registration_start, registration_end, competition_start, competition_end, difficulty, official_url, recommend_days) VALUES
-('蓝桥杯全国软件和信息技术专业人才大赛', '工业和信息化部人才交流中心主办的全国性IT学科赛事', '算法编程', '["计算机科学与技术","软件工程","人工智能"]', '不限', '2026-10-01', '2026-12-15', '2027-04-01', '2027-04-30', 'INTERMEDIATE', 'https://www.lanqiao.cn/', 60),
-('ACM-ICPC国际大学生程序设计竞赛', '全球最具影响力的大学生程序设计竞赛', '算法编程', '["计算机科学与技术","软件工程","人工智能"]', '不限', '2026-09-01', '2026-10-31', '2027-03-01', '2027-05-31', 'ADVANCED', 'https://icpc.global/', 90),
-('中国大学生计算机设计大赛', '教育部高等学校计算机类专业教学指导委员会主办', '综合', '["计算机科学与技术","软件工程","人工智能"]', '不限', '2027-01-01', '2027-03-31', '2027-05-01', '2027-08-31', 'INTERMEDIATE', 'https://www.jsjds.com.cn/', 45),
-('全国大学生数学建模竞赛', '全国规模最大的数学建模竞赛', '数学建模', '["计算机科学与技术","软件工程","人工智能"]', '大二及以上', '2026-05-01', '2026-09-01', '2026-09-10', '2026-09-13', 'ADVANCED', 'http://www.mcm.edu.cn/', 60),
-('互联网+大学生创新创业大赛', '教育部主办的创新创业大赛', '创新创业', '["计算机科学与技术","软件工程","人工智能"]', '不限', '2027-03-01', '2027-05-31', '2027-06-01', '2027-10-31', 'ADVANCED', 'https://cy.ncss.cn/', 90),
-('传智杯全国大学生IT技能大赛', '传智教育主办的IT技能竞赛', '综合', '["计算机科学与技术","软件工程","人工智能"]', '不限', '2026-10-01', '2026-12-01', '2026-12-15', '2027-01-15', 'BEGINNER', 'https://www.itcast.cn/', 30);
-
