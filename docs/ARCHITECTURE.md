@@ -207,7 +207,11 @@ data: 第二行内容
 3. **权限粒度**：只有 `STUDENT` / `ADMIN` 两级。管理员能看统计与用户列表，
    但看不到他人的画像、规划等隐私内容——这是有意的边界，不是遗漏
 4. **Docker 编排未实测**：文件已按标准写好，但开发机没有 Docker，未在真实容器中跑过
-5. **数据覆盖面**：课程只覆盖 5 个 IT 方向共 53 门；其它专业会看到「建设中」提示并展示计算机方向课程
+5. **数据覆盖面**：课程已按 18 个专业方向铺到全部 175 个专业（约 3950 条），竞赛 47 条
+   并按 `suitable_major` 参与专业匹配；但方向划分是「够用」而非「精确」——
+   同一方向内不同专业的课程完全一致，尚未做到一专业一套课程表
+6. **岗位与薪资数据**：发展方向页的薪资区间、考研方向是保守编写的参考文案，
+   不是统计结果，页面已明确标注「参考区间」
 
 这些不是遗漏，而是有意识地记录下来，避免假装项目已经完成。
 
@@ -221,5 +225,6 @@ data: 第二行内容
 | 一键启停 | `scripts/start-dev.*` / `stop-dev.*` | 依赖检查 + 前后端启动 |
 | Mock AI 服务 | `scripts/mock-ai-server.mjs` | 兼容 OpenAI 协议，无 Key 也能验证完整 AI 链路 |
 | 专业字典生成 | `scripts/gen-majors.mjs` | 由前端 `majors.js` 生成 `database/majors.sql` |
-| 单元测试 | `backend/src/test`、`frontend/src/utils/*.test.mjs` | 后端 21 个、前端 12 个 |
+| 课程数据生成 | `scripts/gen-courses.mjs` + `scripts/course-templates.mjs` | 读后端 `MajorDirection.java` 的正则，把 18 个方向的课程模板铺到 175 个专业。改模板后重跑即可，避免 175 份课程表与后端方向判断漂移 |
+| 单元测试 | `backend/src/test`、`frontend/src/utils/*.test.mjs` | 后端 52 个、前端 12 个 |
 | 容器编排 | `docker-compose.yml` + 两个 Dockerfile | 含 nginx 流式与 SPA 路由配置 |

@@ -197,5 +197,6 @@ cd frontend && npm test
 | 流式对话变成一次性返回 | 反向代理的缓冲没关（nginx 需 `proxy_buffering off`） |
 | 刷新深层路由出现 404 | SPA 路由回退缺失（nginx 需 `try_files ... /index.html`） |
 | 「API 设置」保存报错 | 检查 `user_settings` 表是否存在，执行 `database/schema.sql` |
-| 课程页显示的是计算机方向的课 | 该专业的课程数据尚未录入，页面会给出提示（这是设计内的降级） |
+| 课程页显示的是计算机方向的课 | 老版本的行为，已修复。若仍出现，说明课程数据没更新：重新执行 `database/data.sql`（课程已覆盖全部 175 个专业） |
+| 竞赛推荐给护理学学生推了程序设计竞赛 | 老版本的行为，已修复。`suitable_major` 现在真正参与匹配，确认后端已用最新代码重启 |
 | 中文在 Windows 控制台显示乱码 | PowerShell 控制台编码问题，不影响数据本身；用浏览器或 `curl` 输出到文件查看 |

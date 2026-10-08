@@ -5,10 +5,10 @@
       <p>{{ majorName || '我的专业' }} · 完整学习路线</p>
     </div>
 
-    <!-- 该专业课程尚未覆盖时的说明，避免用户看到空白页 -->
-    <div class="major-notice" v-if="fallbackNotice">
+    <!-- 该专业课程数据尚未补充时的中性空状态，不做任何其它专业的兜底 -->
+    <div class="major-notice" v-if="loaded && !courses.length">
       <el-icon><InfoFilled /></el-icon>
-      <span>「{{ majorName }}」的专业学习地图正在建设中，先为你展示计算机方向的核心课程。</span>
+      <span>「{{ majorName || '该专业' }}」的课程数据正在补充中，敬请期待。</span>
     </div>
 
     <!-- 统计条 -->
@@ -105,7 +105,7 @@ const dialogVisible = ref(false)
 const selectedCourse = ref(null)
 const sliderProgress = ref(0)
 const majorName = ref('')
-const fallbackNotice = ref(false)
+const loaded = ref(false)
 
 const completedCount = computed(() => courses.value.filter(c => c.progress >= 100).length)
 const inProgressCount = computed(() => courses.value.filter(c => c.progress > 0 && c.progress < 100).length)
@@ -140,8 +140,8 @@ function progressColor(c) {
 }
 
 onMounted(async () => {
-  // 读取学生档案，按学生真实专业加载对应课程；未初始化档案时回退到计算机方向
-  let majorId = 1
+  // 只加载学生本人专业的课程；未初始化档案或该专业课程为空时显示中性空状态
+  let majorId = null
   try {
     const profile = (await getProfileApi()).data
     if (profile?.majorId) {
@@ -149,19 +149,20 @@ onMounted(async () => {
       majorName.value = profile.majorName || ''
     }
   } catch (e) {
-    // 档案尚未初始化，使用默认专业
+    // 档案尚未初始化
+  }
+
+  if (majorId == null) {
+    loaded.value = true
+    return
   }
 
   try {
-    let list = (await getCoursesApi(majorId)).data || []
-    if (!list.length && majorId !== 1) {
-      // 该专业的课程数据尚未录入，先展示计算机方向的核心课程，并明确告知用户
-      list = (await getCoursesApi(1)).data || []
-      fallbackNotice.value = true
-    }
-    courses.value = list
+    courses.value = (await getCoursesApi(majorId)).data || []
   } catch (e) {
     ElMessage.error('加载课程失败')
+  } finally {
+    loaded.value = true
   }
 })
 

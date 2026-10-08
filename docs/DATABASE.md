@@ -104,7 +104,19 @@ competition                     （独立字典表，通过 suitable_major 与�
 
 唯一索引 `uk_course_major_name (major_id, name)` 保证重复执行种子脚本不会插入重复课程。
 
-当前覆盖 5 个方向共 **53 门课程**：计算机 12、软件工程 10、人工智能 11、大数据 10、电子信息 10。
+当前共 **约 3950 条课程**：`scripts/course-templates.mjs` 定义 18 个专业方向的课程模板
+（每方向 11~13 门），`scripts/gen-courses.mjs` 读取后端 `MajorDirection.java` 的方向正则，
+把模板铺到匹配该方向的每个专业上，再叠加 10 门通识课。
+
+> **为什么用生成器而不是手写 175 份课程表**：专业与方向的映射规则只应该有一处定义
+> （`MajorDirection.java`）。生成器与后端共用同一份正则，避免两边漂移。
+> 生成结果写在 `data.sql` 的 `GENERATED:courses` 标记之间，**不要手工编辑那一段**；
+> 改完模板后在 `zhitu-ai` 目录执行 `node scripts/gen-courses.mjs` 重新生成。
+>
+> 生成器还会给每个方向加上「排除前面所有方向正则」的条件
+> （`AND m.name NOT REGEXP '...'`），因为 `MajorDirection.resolve()` 是先匹配先胜，
+> 而纯 SQL 的多个 `REGEXP` 条件互相独立，会出现「机械设计制造及其自动化」同时命中
+> 机电与艺术两个方向、拿到两份课程的问题。
 
 ### 6. `knowledge_point` — 知识点
 
@@ -118,8 +130,8 @@ competition                     （独立字典表，通过 suitable_major 与�
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `name` | VARCHAR(200) | 唯一索引 `uk_competition_name` |
-| `type` | VARCHAR(50) | 算法编程 / 数学建模 / 创新创业 / 电子设计 / 英语 |
-| `suitable_major` | VARCHAR(500) | 适配专业，JSON 数组字符串 |
+| `type` | VARCHAR(50) | 算法编程 / 数学建模 / 机械控制 / 医学技能 / 经管实务 / 艺术设计 …（20+ 种，前端下拉从数据里派生，不写死） |
+| `suitable_major` | VARCHAR(500) | 适配专业，JSON 数组字符串；`["*"]` 表示不限专业 |
 | `registration_start/end` | DATE | 报名起止 |
 | `competition_start/end` | DATE | 比赛起止 |
 | `difficulty` | VARCHAR(20) | `BEGINNER` / `INTERMEDIATE` / `ADVANCED` |
@@ -129,6 +141,13 @@ competition                     （独立字典表，通过 suitable_major 与�
 > 种子数据中的日期使用 `DATE_SUB(CURDATE(), INTERVAL n DAY)` 这类相对表达式生成，
 > 保证任何时间演示都有「报名中」的赛事和有效的倒计时。
 > **正式部署时需替换为赛事官方公布的固定日期。**
+>
+> `suitable_major` 不是装饰字段：`CompetitionRecommendServiceImpl.matchesMajor()`
+> 会先做专业名直接匹配，再退一步比较 `MajorDirection.resolve()` 得到的**方向**
+> （所以数据库里只列了「会计学」，财务管理、人力资源管理的学生也算对口），
+> 离线降级推荐里对口的竞赛 +35 分、不限专业的 +10 分。
+> 两个都识别不出的陌生专业会一起落到通用兜底，因此匹配时**必须先排除 GENERAL**，
+> 否则任意两个不相干的专业都会被判为同方向。
 
 ### 8. `ai_plan` — AI 规划结果
 

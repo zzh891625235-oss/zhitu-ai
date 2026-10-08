@@ -120,4 +120,55 @@ class DeepSeekProviderTest {
         assertThat(status.get("configured")).isEqualTo(false);
         assertThat(status.get("keySource")).isEqualTo("NONE");
     }
+
+    // ===== 离线兜底必须按专业方向输出 =====
+    // AiChatController 会把「【专业:xxx】」写进系统提示开头，
+    // 下面几条就是守着这个约定：护理学的学生不能拿到蓝桥杯和 408。
+
+    private static String promptFor(String majorName, String label) {
+        return "【专业:" + majorName + "】学生专业为「" + majorName + "」，方向属「" + label + "」。\n你是就业规划顾问。";
+    }
+
+    @Test
+    void nursingStudentDoesNotGetProgrammingCompetitions() {
+        String answer = provider.chat(promptFor("护理学", "护理类"), "推荐一些竞赛");
+
+        assertThat(answer).contains("护理类方向竞赛建议");
+        assertThat(answer).contains("护理");
+        assertThat(answer).doesNotContain("蓝桥杯");
+        assertThat(answer).doesNotContain("ACM");
+        assertThat(answer).doesNotContain("计算机类竞赛");
+    }
+
+    @Test
+    void itStudentStillGetsProgrammingCompetitions() {
+        String answer = provider.chat(promptFor("计算机科学与技术", "计算机 / 电子信息"), "推荐一些竞赛");
+
+        assertThat(answer).contains("蓝桥杯");
+    }
+
+    @Test
+    void nursingStudentGetsNursingTargetPositions() {
+        String answer = provider.chat(promptFor("护理学", "护理类"), "秋招应该怎么准备");
+
+        assertThat(answer).contains("临床护士");
+        assertThat(answer).doesNotContain("Java后端");
+    }
+
+    @Test
+    void nursingStudentResumeAdviceIsNotBackendFlavoured() {
+        String answer = provider.chat(promptFor("护理学", "护理类"), "简历怎么写");
+
+        assertThat(answer).contains("协助老师完成相关工作");
+        assertThat(answer).doesNotContain("订单表").doesNotContain("后端开发");
+    }
+
+    @Test
+    void missingMajorMarkerStaysGenericInsteadOfAssumingComputerScience() {
+        // 没有专业标记时不能默认按计算机方向输出——落到通用兜底才是安全的
+        String answer = provider.chat("你是就业规划顾问", "推荐一些竞赛");
+
+        assertThat(answer).contains("通用方向竞赛建议");
+        assertThat(answer).doesNotContain("蓝桥杯");
+    }
 }

@@ -349,6 +349,12 @@ public class DeepSeekProvider implements AIService {
         }
         String q = userMessage;
 
+        // 调用方（AiChatController.getSystemPrompt）会把专业写进系统提示开头。
+        // 非计算机专业的学生不应该拿到 Java / 蓝桥杯 / 408 那一套内容。
+        String majorName = majorFrom(systemPrompt);
+        boolean it = MajorDirection.isIT(majorName == null ? "" : majorName);
+        MajorDirection dir = MajorDirection.resolve(majorName == null ? "" : majorName);
+
         if (q.contains("多态")) {
             return "**多态**：同一个方法调用，作用在不同对象上产生不同行为。\n\n"
                  + "三个必要条件：继承、方法重写、父类引用指向子类对象。\n\n"
@@ -376,40 +382,70 @@ public class DeepSeekProvider implements AIService {
                  + "* 用 EXPLAIN 看 type 和 key，尽量避免 ALL（全表扫描）";
         }
         if (q.contains("秋招") || q.contains("求职") || q.contains("找工作")) {
-            return "**秋招准备路线**\n\n"
-                 + "1. 技术栈：深入一门语言 + 常用框架原理（Spring、MySQL、Redis）\n"
-                 + "2. 算法：LeetCode 200 题以上，重点掌握高频题型\n"
-                 + "3. 项目：至少 2 个能讲清楚难点的完整项目\n"
-                 + "4. 实习：大三暑假的实习是校招最大加分项\n\n"
-                 + "时间线：7-8 月提前批 → 9-10 月正式批 → 次年 3-4 月春招补录。";
+            if (it) {
+                return "**秋招准备路线**\n\n"
+                     + "1. 技术栈：深入一门语言 + 常用框架原理（Spring、MySQL、Redis）\n"
+                     + "2. 算法：LeetCode 200 题以上，重点掌握高频题型\n"
+                     + "3. 项目：至少 2 个能讲清楚难点的完整项目\n"
+                     + "4. 实习：大三暑假的实习是校招最大加分项\n\n"
+                     + "时间线：7-8 月提前批 → 9-10 月正式批 → 次年 3-4 月春招补录。";
+            }
+            return "**求职准备路线（" + dir.label() + "方向）**\n\n"
+                 + "1. 专业能力：把核心专业课学扎实，面试里讲得清原理比背题有用\n"
+                 + "2. 证书：优先考取「" + join(dir.certificates(), 2) + "」这类对口证书\n"
+                 + "3. 实践：至少 2 段能讲清楚你具体做了什么的对口实习或课程项目\n"
+                 + "4. 岗位方向：" + join(dir.positions(), 4) + "\n\n"
+                 + "时间线：大三暑假实习 → 大四上 9-11 月秋招 → 次年 3-4 月春招补录。";
         }
         if (q.contains("考研") || q.contains("保研")) {
+            String subject = it
+                ? "专业课（计算机统考多为 408）"
+                : "专业课（目标院校自命题，务必查最新招生简章）";
             return "**考研 / 保研要点**\n\n"
                  + "* 保研：看前三年 GPA + 竞赛科研，大三下就要开始联系导师和参加夏令营\n"
-                 + "* 考研：数学 + 英语 + 政治 + 专业课（计算机多为 408）\n"
+                 + "* 考研：数学 + 英语 + 政治 + " + subject + "\n"
                  + "* 时间线：大三上确定目标院校 → 大三下开始系统复习 → 大四上 12 月考试\n"
                  + "* 无论哪条路，GPA 都是基础，不要为了竞赛牺牲成绩。";
         }
-        if (q.contains("竞赛") || q.contains("蓝桥杯") || q.contains("ACM")) {
-            return "**计算机类竞赛选择建议**\n\n"
-                 + "* 入门友好：传智杯、蓝桥杯（个人赛，适合第一次参赛）\n"
-                 + "* 含金量高：ACM-ICPC、中国大学生计算机设计大赛\n"
-                 + "* 保研加分：数学建模竞赛、互联网+创新创业大赛\n\n"
-                 + "建议大一大二从蓝桥杯起步积累经验，大三冲击高含金量赛事。";
+        if (q.contains("竞赛") || q.contains("蓝桥杯") || q.contains("ACM") || q.contains("比赛")) {
+            if (it) {
+                return "**计算机类竞赛选择建议**\n\n"
+                     + "* 入门友好：传智杯、蓝桥杯（个人赛，适合第一次参赛）\n"
+                     + "* 含金量高：ACM-ICPC、中国大学生计算机设计大赛\n"
+                     + "* 保研加分：数学建模竞赛、互联网+创新创业大赛\n\n"
+                     + "建议大一大二从蓝桥杯起步积累经验，大三冲击高含金量赛事。";
+            }
+            return "**" + dir.label() + "方向竞赛建议**\n\n"
+                 + "* 本方向常见赛事：" + competitionsOf(dir) + "\n"
+                 + "* 选择原则：先校级 / 省级起步，积累作品与答辩经验后再冲国家级\n"
+                 + "* 备赛重点：竞赛考的大多就是专业课内容的综合应用，别抛开课程单独刷题\n\n"
+                 + "建议大一大二先参加校级赛事练手，大三冲击含金量更高的赛事。";
         }
         if (q.contains("实习")) {
+            if (it) {
+                return "**如何拿到第一份实习**\n\n"
+                     + "1. 先有一个能演示的项目，部署上线并有 GitHub 仓库\n"
+                     + "2. 简历突出「你解决了什么问题」，而不是「你用了什么技术」\n"
+                     + "3. 投递节奏：日常实习全年可投，暑期实习集中在 3-5 月\n"
+                     + "4. 面试重点：项目细节 + 八股（Java 基础、集合、JVM、MySQL、Redis）+ 算法题";
+            }
             return "**如何拿到第一份实习**\n\n"
-                 + "1. 先有一个能演示的项目，部署上线并有 GitHub 仓库\n"
-                 + "2. 简历突出「你解决了什么问题」，而不是「你用了什么技术」\n"
+                 + "1. 先有一段讲得清的真实经历：课程实践、实验室项目、校内岗位都算\n"
+                 + "2. 简历突出「你解决了什么问题」，而不是「你参与了什么」\n"
                  + "3. 投递节奏：日常实习全年可投，暑期实习集中在 3-5 月\n"
-                 + "4. 面试重点：项目细节 + 八股（Java 基础、集合、JVM、MySQL、Redis）+ 算法题";
+                 + "4. 面试重点：专业课基础 + 项目细节 + 对目标岗位的理解\n\n"
+                 + "对口岗位可参考：" + join(dir.positions(), 3) + "。";
         }
         if (q.contains("简历")) {
-            return "**技术简历写作要点**\n\n"
+            String example = it
+                ? "* 正例：独立设计订单表结构并优化慢查询，接口 P95 从 800ms 降到 120ms\n"
+                : "* 正例：在课程实践中负责 XX 环节，把 XX 流程的耗时从 3 天缩短到 1 天\n";
+            String bad = it ? "* 反例：负责后端开发\n" : "* 反例：协助老师完成相关工作\n";
+            return "**简历写作要点**\n\n"
                  + "* 一页为宜，倒序排列经历\n"
-                 + "* 项目描述用 STAR 法：背景 → 你的任务 → 你怎么做的 → 量化结果\n"
-                 + "* 反例：负责后端开发\n"
-                 + "* 正例：独立设计订单表结构并优化慢查询，接口 P95 从 800ms 降到 120ms\n"
+                 + "* 经历描述用 STAR 法：背景 → 你的任务 → 你怎么做的 → 量化结果\n"
+                 + bad
+                 + example
                  + "* 技能栏只写能被追问的，写了就要能答上来";
         }
 
@@ -422,5 +458,43 @@ public class DeepSeekProvider implements AIService {
              + "4. **立即行动**：先做一件 30 分钟内能完成的事，避免停留在计划阶段\n\n"
              + "> 当前运行在**离线模板模式**，以上为内置建议。"
              + "在「API 设置」中填入自己的 API Key 后，即可获得针对你个人学情的深度分析。";
+    }
+
+    /**
+     * 从系统提示开头取出调用方写入的专业名（格式见 AiChatController.getSystemPrompt）。
+     *
+     * 取不到就返回 null，此时方向会落到通用兜底（不会按计算机方向输出）——
+     * 这是刻意的：宁可给通用建议，也不要给一个文科生讲 408 和蓝桥杯。
+     */
+    private String majorFrom(String systemPrompt) {
+        if (systemPrompt == null) return null;
+        int s = systemPrompt.indexOf("【专业:");
+        if (s < 0) return null;
+        int e = systemPrompt.indexOf('】', s);
+        if (e <= s) return null;
+        String name = systemPrompt.substring(s + 4, e).trim();
+        return name.isEmpty() ? null : name;
+    }
+
+    /** 取列表前 n 项并用「、」连接 */
+    private String join(List<String> items, int n) {
+        if (items == null || items.isEmpty()) return "—";
+        StringBuilder sb = new StringBuilder();
+        int limit = Math.min(n, items.size());
+        for (int i = 0; i < limit; i++) {
+            if (i > 0) sb.append("、");
+            sb.append(items.get(i));
+        }
+        return sb.toString();
+    }
+
+    /** 汇总该方向四年规划里出现过的竞赛，去重后最多 5 个 */
+    private String competitionsOf(MajorDirection dir) {
+        LinkedHashSet<String> set = new LinkedHashSet<>();
+        for (MajorDirection.YearPlan y : dir.years()) {
+            if (y.competitions != null) set.addAll(y.competitions);
+        }
+        if (set.isEmpty()) return "本方向校级 / 省级专业技能竞赛";
+        return join(new ArrayList<>(set), 5);
     }
 }

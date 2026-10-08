@@ -87,6 +87,8 @@
 import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { ChatDotRound, Promotion, Delete } from '@element-plus/icons-vue'
 import { getHistoryApi, clearHistoryApi, getAiStatusApi, streamChatApi } from '../api/ai'
+import { getProfileApi } from '../api/profile'
+import { buildQuickQuestions, resolveDirectionData } from '../data/majorDirection'
 import { renderMarkdown } from '../utils/markdown'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -97,25 +99,31 @@ const loading = ref(false)
 const msgContainer = ref(null)
 const aiStatus = reactive({ configured: false, model: '', keySource: 'NONE' })
 
-const modes = [
-  { id: 'GENERAL', icon: '🤖', name: '通用问答', desc: '学习成长咨询',
-    welcome: '你好！我是智途AI助手。有任何学习、成长、规划的问题，尽管问我！',
-    quickQuestions: ['我的专业适合参加什么竞赛？', '如何制定学习计划？', '大二应该重点学什么？'] },
-  { id: 'LEARNING', icon: '📖', name: '学习导师', desc: '概念解释+答疑',
-    welcome: '我是你的AI学习导师。遇到不懂的知识点，我会用通俗的方式帮你理解！',
-    quickQuestions: ['什么是Java多态？举个例子', '链表和数组有什么区别？', '解释一下TCP三次握手'] },
-  { id: 'CAREER', icon: '💼', name: '职业规划', desc: '就业发展方向',
-    welcome: '我是你的职业规划顾问。帮你分析发展方向、准备面试、规划未来。',
-    quickQuestions: ['计算机专业有哪些就业方向？', '如何准备大厂秋招？', '考研还是就业？'] },
-  { id: 'COMPETITION', icon: '🏆', name: '竞赛咨询', desc: '比赛策略+准备',
-    welcome: '我是竞赛辅导老师。帮你选择适合的比赛、制定备赛策略！',
-    quickQuestions: ['蓝桥杯怎么准备？', 'ACM和蓝桥杯有什么区别？', '数学建模竞赛需要什么基础？'] },
-  { id: 'INTERVIEW', icon: '🎤', name: '模拟面试', desc: '技术面试演练',
-    welcome: '我是你的技术面试官。我会像真实面试一样提问，并在你回答后给出具体点评。\n\n准备好了就说「开始面试」，我先了解一下你的目标岗位。',
-    quickQuestions: ['开始面试，我投递的是Java后端实习', '问我几道MySQL索引的题', '帮我练习自我介绍'] }
-]
+// 学生专业方向：默认通用方向，快捷提问随之切换，避免出现与专业无关的技术问题
+const direction = ref(resolveDirectionData(''))
 
-const currentModeObj = computed(() => modes.find(m => m.id === currentMode.value) || modes[0])
+const modes = computed(() => {
+  const q = buildQuickQuestions(direction.value.key)
+  return [
+    { id: 'GENERAL', icon: '🤖', name: '通用问答', desc: '学习成长咨询',
+      welcome: `你好！我是智途AI助手。当前按「${direction.value.label}」方向为你提供建议，有任何学习、成长、规划的问题，尽管问我！`,
+      quickQuestions: q.GENERAL },
+    { id: 'LEARNING', icon: '📖', name: '学习导师', desc: '概念解释+答疑',
+      welcome: '我是你的AI学习导师。遇到不懂的知识点，我会用通俗的方式帮你理解！',
+      quickQuestions: q.LEARNING },
+    { id: 'CAREER', icon: '💼', name: '职业规划', desc: '就业发展方向',
+      welcome: '我是你的职业规划顾问。帮你分析发展方向、准备面试、规划未来。',
+      quickQuestions: q.CAREER },
+    { id: 'COMPETITION', icon: '🏆', name: '竞赛咨询', desc: '比赛策略+准备',
+      welcome: '我是竞赛辅导老师。帮你选择适合的比赛、制定备赛策略！',
+      quickQuestions: q.COMPETITION },
+    { id: 'INTERVIEW', icon: '🎤', name: '模拟面试', desc: '岗位面试演练',
+      welcome: '我是你的模拟面试官。我会像真实面试一样提问，并在你回答后给出具体点评。\n\n准备好了就说「开始面试」，我先了解一下你的目标岗位。',
+      quickQuestions: q.INTERVIEW }
+  ]
+})
+
+const currentModeObj = computed(() => modes.value.find(m => m.id === currentMode.value) || modes.value[0])
 const showTyping = computed(() => {
   if (!loading.value || !messages.value.length) return false
   const last = messages.value[messages.value.length - 1]
@@ -205,6 +213,13 @@ onMounted(async () => {
     Object.assign(aiStatus, (await getAiStatusApi()).data || {})
   } catch (e) {
     // 状态获取失败时按离线模式展示
+  }
+  // 先拿到专业方向，保证快捷提问与专业一致
+  try {
+    const profile = (await getProfileApi()).data
+    direction.value = resolveDirectionData(profile?.majorName || '')
+  } catch (e) {
+    // 档案读取失败时保持通用方向的快捷提问
   }
   await switchMode('GENERAL')
 })

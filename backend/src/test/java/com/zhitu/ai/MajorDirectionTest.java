@@ -88,6 +88,31 @@ class MajorDirectionTest {
             assertThat(direction.suggestions()).as(major + " 的画像建议").isNotEmpty();
             assertThat(direction.risks()).as(major + " 的风险提醒").isNotEmpty();
             assertThat(direction.certificates()).as(major + " 的证书推荐").isNotEmpty();
+            assertThat(direction.positions()).as(major + " 的就业岗位").isNotEmpty();
         }
+    }
+
+    @Test
+    void nursingDoesNotGetProgrammerPositions() {
+        // 简历的「意向岗位」以前写死「Java后端开发工程师」，护理学学生拿到就是跑偏的
+        assertThat(MajorDirection.resolve("护理学").positions())
+            .contains("临床护士")
+            .noneMatch(p -> p.contains("Java") || p.contains("开发工程师"));
+    }
+
+    @Test
+    void businessAndAnimalGetTheirOwnPositions() {
+        assertThat(MajorDirection.resolve("会计学").positions()).contains("会计");
+        assertThat(MajorDirection.resolve("动物医学").positions())
+            .anyMatch(p -> p.contains("动物") || p.contains("兽医") || p.contains("宠物"));
+    }
+
+    @Test
+    void isGeneralOnlyForUnrecognisedMajors() {
+        assertThat(MajorDirection.resolve("护理学").isGeneral()).isFalse();
+        assertThat(MajorDirection.resolve("会计学").isGeneral()).isFalse();
+        // 认不出来的专业才会落到通用兜底——竞赛匹配时要靠这个把误判挡掉
+        assertThat(MajorDirection.resolve("某个不存在的专业").isGeneral()).isTrue();
+        assertThat(MajorDirection.resolve("").isGeneral()).isTrue();
     }
 }

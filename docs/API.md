@@ -98,16 +98,16 @@
 | 方法 | 路径 | 说明 | 鉴权 |
 | --- | --- | --- | --- |
 | GET | `/majors` | 专业字典（175 个，按 `sortOrder` 升序） | 公开 |
-| GET | `/courses?majorId=1` | 某专业的课程列表（附带当前用户进度） | 公开 |
-| GET | `/courses/{id}` | 课程详情 | 公开 |
+| GET | `/courses?majorId=1` | 某专业的课程列表（附带当前用户进度） | 需要 |
+| GET | `/courses/{id}` | 课程详情 | 需要 |
 | POST | `/courses/{id}/progress` | 更新学习进度 | 需要 |
 
 **课程列表响应 `data`**（数组元素）
 
 ```json
 {
-  "id": 3, "name": "数据结构", "description": "线性表、栈、队列、树、图",
-  "difficulty": "INTERMEDIATE", "semester": "大二上", "category": "核心基础",
+  "id": 3, "name": "自动控制原理", "description": "系统建模、时域频域分析与稳定性判据",
+  "difficulty": "ADVANCED", "semester": "大三上", "category": "专业核心",
   "sortOrder": 3, "progress": 60, "status": "IN_PROGRESS"
 }
 ```
@@ -380,7 +380,7 @@
 
 ```json
 {
-  "userCount": 2, "majorCount": 175, "courseCount": 53, "competitionCount": 10,
+  "userCount": 2, "majorCount": 175, "courseCount": 3955, "competitionCount": 54,
   "profileCount": 1, "portraitCount": 1, "planCount": 1, "resumeCount": 1,
   "chatCount": 0, "growthCount": 6,
   "todayUsers": 2,

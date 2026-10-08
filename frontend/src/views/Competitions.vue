@@ -21,10 +21,8 @@
       <div class="filter-bar">
         <el-input v-model="searchText" placeholder="搜索竞赛..." :prefix-icon="Search" clearable class="search-input" />
         <el-select v-model="filterType" placeholder="竞赛类型" clearable>
-          <el-option label="算法编程" value="算法编程" />
-          <el-option label="数学建模" value="数学建模" />
-          <el-option label="创新创业" value="创新创业" />
-          <el-option label="综合" value="综合" />
+          <el-option label="全部" value="" />
+          <el-option v-for="t in typeOptions" :key="t" :label="t" :value="t" />
         </el-select>
         <el-select v-model="filterDiff" placeholder="难度" clearable>
           <el-option label="入门" value="BEGINNER" />
@@ -146,6 +144,15 @@ const filteredComps = computed(() => competitions.value.filter(c => {
   if (filterDiff.value && c.difficulty !== filterDiff.value) return false
   return true
 }))
+
+// 类型下拉从后端返回的竞赛数据里派生，保证任何类型都能被筛到（数据库里已有 20+ 种类型）
+const typeOptions = computed(() => {
+  const seen = []
+  for (const c of competitions.value) {
+    if (c.type && !seen.includes(c.type)) seen.push(c.type)
+  }
+  return seen
+})
 
 function diffTag(d) {
   if (d === 'BEGINNER') return 'success'; if (d === 'INTERMEDIATE') return 'warning'; return 'danger'

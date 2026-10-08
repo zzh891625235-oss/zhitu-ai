@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
+import com.zhitu.ai.MajorDirection;
 import com.zhitu.entity.*;
 import com.zhitu.mapper.*;
 import com.zhitu.service.ResumeService;
@@ -100,8 +101,8 @@ public class ResumeServiceImpl implements ResumeService {
           .append(" 专业:").append(resolveMajorName(p.getMajorId()))
           .append(" 年级:").append(p.getGrade()).append("\n");
         // 非计算机专业不要写「编程/Java/Python」这些字段，否则简历会跑偏
-        if (p.getSkillAssessment() != null && !p.getSkillAssessment().trim().isEmpty()) {
-            sb.append("专业方向：").append(resolveMajorName(p.getMajorId())).append("（非计算机方向）\n");
+        if (!MajorDirection.isIT(resolveMajorName(p.getMajorId()))) {
+            sb.append("专业方向：").append(resolveMajorName(p.getMajorId())).append("\n");
             sb.append("英语:").append(p.getEnglishLevel()).append("\n");
         } else {
             sb.append("编程:").append(p.getProgrammingLevel()).append(" Java:").append(p.getJavaLevel())
@@ -125,28 +126,44 @@ public class ResumeServiceImpl implements ResumeService {
 
     private Map<String, Object> buildFallbackResume(StudentProfile p, User u,
                                                      List<LearningRecord> lr, List<GrowthRecord> gr, Long userId) {
+        String majorName = resolveMajorName(p.getMajorId());
+        MajorDirection dir = MajorDirection.resolve(majorName);
+        boolean it = MajorDirection.isIT(majorName);
+
         Map<String, Object> resume = new LinkedHashMap<>();
         resume.put("name", u.getNickname());
 
         Map<String, String> edu = new LinkedHashMap<>();
         edu.put("school", p.getSchool());
-        edu.put("major", resolveMajorName(p.getMajorId()));
+        edu.put("major", majorName);
         edu.put("grade", p.getGrade());
         resume.put("education", edu);
 
+        // 技能：计算机方向看编程语言等级，其它方向用该方向四年规划里的技能项，
+        // 否则护理学、会计学的简历上会写着「Java」「Spring Boot」。
         List<String> skills = new ArrayList<>();
-        if (!"BEGINNER".equals(p.getJavaLevel())) skills.add("Java/" + p.getJavaLevel());
-        if (!"BEGINNER".equals(p.getPythonLevel())) skills.add("Python/" + p.getPythonLevel());
-        skills.add("MySQL");
-        skills.add("Spring Boot");
-        skills.add("Git");
+        if (it) {
+            if (!"BEGINNER".equals(p.getJavaLevel())) skills.add("Java/" + p.getJavaLevel());
+            if (!"BEGINNER".equals(p.getPythonLevel())) skills.add("Python/" + p.getPythonLevel());
+            skills.add("MySQL");
+            skills.add("Spring Boot");
+            skills.add("Git");
+        } else {
+            skills.addAll(directionSkills(dir, gradeIndex(p.getGrade())));
+            if (skills.size() < 4) skills.add("Office 办公软件");
+            if (skills.size() < 4) skills.add("团队协作与沟通");
+        }
         resume.put("skills", skills);
 
+        // 主修课程：直接取该方向当前年级的课程，让简历与专业对得上
+        resume.put("courses", directionCourses(dir, gradeIndex(p.getGrade())));
+
+        // 项目：优先用成长记录里的真实项目；没有就给一个与本专业相关的占位项
         List<String> projects = new ArrayList<>();
         for (GrowthRecord g : gr) {
             if ("PROJECT".equals(g.getRecordType())) projects.add(g.getTitle() + " - " + g.getDescription());
         }
-        if (projects.isEmpty()) projects.add("基于Spring Boot的学生管理系统");
+        if (projects.isEmpty()) projects.add("专业课程综合实践项目（" + dir.label() + "方向）");
         resume.put("projects", projects);
 
         List<String> competitions = new ArrayList<>();
@@ -161,11 +178,54 @@ public class ResumeServiceImpl implements ResumeService {
         }
         resume.put("certificates", certs);
 
-        resume.put("advantages", "具备" + p.getProgrammingLevel() + "级编程基础，熟悉Java和Python，有良好的自学能力和团队协作精神。");
-        resume.put("targetPosition", "Java后端开发工程师");
+        resume.put("advantages", fallbackAdvantages(p, dir, it));
+        resume.put("targetPosition", dir.positions().get(0));
 
         saveResume(userId, resume);
         return resume;
+    }
+
+    /** 大一→0、大二→1、大三→2、大四→3；无法识别时按大二处理 */
+    private int gradeIndex(String grade) {
+        if (grade == null) return 1;
+        if (grade.contains("一")) return 0;
+        if (grade.contains("三")) return 2;
+        if (grade.contains("四")) return 3;
+        return 1;
+    }
+
+    /** 汇总该方向当前年级及以后的技能项，去重后最多 6 条 */
+    private List<String> directionSkills(MajorDirection dir, int idx) {
+        List<String> out = new ArrayList<>();
+        MajorDirection.YearPlan[] years = dir.years();
+        for (int i = Math.max(0, idx); i < years.length; i++) {
+            for (String s : years[i].skills) {
+                if (!out.contains(s)) out.add(s);
+            }
+        }
+        if (out.isEmpty() && years.length > 0) out.addAll(years[0].skills);
+        return out.size() > 6 ? new ArrayList<>(out.subList(0, 6)) : out;
+    }
+
+    /** 该方向当前年级的主修课程（最多 6 门） */
+    private List<String> directionCourses(MajorDirection dir, int idx) {
+        MajorDirection.YearPlan[] years = dir.years();
+        int i = Math.min(Math.max(0, idx), years.length - 1);
+        List<String> c = new ArrayList<>(years[i].courses);
+        return c.size() > 6 ? new ArrayList<>(c.subList(0, 6)) : c;
+    }
+
+    private String fallbackAdvantages(StudentProfile p, MajorDirection dir, boolean it) {
+        if (it) {
+            return "具备" + p.getProgrammingLevel() + "级编程基础，熟悉Java和Python，有良好的自学能力和团队协作精神。";
+        }
+        StringBuilder sb = new StringBuilder("专业基础扎实，");
+        List<String> strengths = dir.strengths();
+        for (int i = 0; i < strengths.size(); i++) {
+            if (i > 0) sb.append("、");
+            sb.append(strengths.get(i));
+        }
+        return sb.append("。有良好的学习能力与团队协作精神。").toString();
     }
 
     /** 查询专业名称；专业表不可用时回退为「未填写」，不影响简历生成 */

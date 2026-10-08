@@ -25,7 +25,7 @@
             <div class="checkin-row">
               <el-input-number v-model="recordMinutes" :min="5" :max="480" :step="5" size="large" />
               <span class="checkin-unit">分钟</span>
-              <el-select v-model="recordCourseId" placeholder="课程" size="large" style="width:180px">
+              <el-select v-model="recordCourseId" :placeholder="courseOptions.length ? '课程' : '暂无课程数据'" size="large" style="width:180px">
                 <el-option v-for="c in courseOptions" :key="c.id" :label="c.name" :value="c.id" />
               </el-select>
               <el-button type="primary" size="large" @click="handleCheckin" :loading="checkingIn">打卡</el-button>
@@ -90,7 +90,7 @@
             <el-option label="💼 实习" value="INTERNSHIP" />
             <el-option label="🎖 获奖" value="AWARD" />
           </el-select>
-          <el-input v-model="newTitle" placeholder="标题（如：蓝桥杯省赛二等奖）" size="default" />
+          <el-input v-model="newTitle" placeholder="标题（如：XX竞赛省级二等奖）" size="default" />
           <el-input v-model="newDesc" placeholder="描述（可选）" size="default" />
           <el-button type="primary" size="default" @click="handleAdd" :loading="adding">添加</el-button>
         </div>
@@ -123,6 +123,8 @@ import { ref, onMounted } from 'vue'
 import { DataAnalysis, Edit, Calendar, FolderOpened, Plus, Check } from '@element-plus/icons-vue'
 import { getStudyPlanApi, generateStudyPlanApi, recordStudyApi } from '../api/studyplan'
 import { getArchiveApi, addGrowthRecordApi } from '../api/growth'
+import { getProfileApi } from '../api/profile'
+import { getCoursesApi } from '../api/course'
 import { ElMessage } from 'element-plus'
 
 const tab = ref('plan')
@@ -134,16 +136,28 @@ const checkingIn = ref(false)
 const adding = ref(false)
 const recordContent = ref('')
 const recordMinutes = ref(30)
-const recordCourseId = ref(1)
+const recordCourseId = ref(null)
 const newType = ref('COMPETITION')
 const newTitle = ref('')
 const newDesc = ref('')
 
-const courseOptions = [
-  { id:1,name:'C语言' },{ id:2,name:'Python' },{ id:3,name:'数据结构' },
-  { id:4,name:'算法' },{ id:5,name:'数据库' },{ id:6,name:'Java' },
-  { id:7,name:'Web前端' },{ id:8,name:'Spring Boot' }
-]
+// 打卡课程下拉：来自学生本人专业的真实课程（后端 /courses?majorId=）
+const courseOptions = ref([])
+
+async function loadCourses() {
+  try {
+    const profile = (await getProfileApi()).data
+    const majorId = profile?.majorId
+    if (!majorId) return
+    const list = (await getCoursesApi(majorId)).data || []
+    courseOptions.value = list.map(c => ({ id: c.id, name: c.name }))
+    if (courseOptions.value.length && recordCourseId.value == null) {
+      recordCourseId.value = courseOptions.value[0].id
+    }
+  } catch (e) {
+    // 课程拉取失败时保持空列表，不回落任何写死的课程名
+  }
+}
 
 function formatDate(d) {
   const date = new Date(d); const diff = Math.ceil((date - new Date()) / 86400000)
@@ -159,6 +173,7 @@ function typeLabel(t) {
 
 onMounted(async () => {
   try { plan.value = (await getStudyPlanApi()).data } catch (e) {}
+  await loadCourses()
 })
 
 async function switchToArchive() {
@@ -179,7 +194,10 @@ async function handleCheckin() {
   if (!recordContent.value.trim()) { ElMessage.warning('请输入学习内容'); return }
   checkingIn.value = true
   try {
-    const res = await recordStudyApi({ content: recordContent.value, minutes: recordMinutes.value, courseId: recordCourseId.value })
+    const payload = { content: recordContent.value, minutes: recordMinutes.value }
+    // 没有可选课程时不传 courseId，避免把计算机方向的课程 id 记到别的专业上
+    if (recordCourseId.value != null) payload.courseId = recordCourseId.value
+    const res = await recordStudyApi(payload)
     analysis.value = res.data; recordContent.value = ''; ElMessage.success('打卡成功')
   } catch (e) {} finally { checkingIn.value = false }
 }
