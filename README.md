@@ -45,6 +45,14 @@
 
 ![管理后台](docs/images/admin.png)
 
+**自动化专业的课程地图**（课程按专业方向生成，不再是计算机方向那一套）
+
+![自动化课程地图](docs/images/courses-automation.png)
+
+**自动化专业的竞赛推荐**（`suitable_major` 真正参与匹配，不再推荐蓝桥杯/ACM）
+
+![竞赛推荐](docs/images/competitions-recommend.png)
+
 > 以上为实际运行截图，使用下方演示账号登录即可复现。
 
 ---
