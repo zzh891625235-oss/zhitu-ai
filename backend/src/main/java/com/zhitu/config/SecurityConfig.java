@@ -48,6 +48,9 @@ public class SecurityConfig {
             .and()
             .authorizeRequests()
                 .antMatchers("/api/auth/**").permitAll()
+                // 一体化部署：放行前端静态资源与页面路由（前端打包进 jar 由 Spring Boot 托管）
+                .antMatchers("/", "/index.html", "/favicon.svg", "/assets/**", "/sylva", "/sylva/**",
+                        "/login", "/register", "/init", "/home", "/home/**").permitAll()
                 .antMatchers("/api/health").permitAll()
                 .antMatchers("/api/majors").permitAll()
                 .antMatchers("/api/courses/**").permitAll()

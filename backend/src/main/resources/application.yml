@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: zhitu-ai
+  # 一体化演示版：默认激活 demo profile（内嵌 H2 数据库，免装 MySQL）
+  # 如需恢复 MySQL 完整版：java -jar zhitu-ai.jar --spring.profiles.active=
+  profiles:
+    active: demo
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:zhitu_ai}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
@@ -38,6 +42,10 @@ ai:
   api-key: ${AI_API_KEY:}
   api-url: ${AI_API_URL:https://api.deepseek.com/v1}
   model: ${AI_MODEL:deepseek-chat}
+  # 视觉理解使用的模型（图片自动录入成长档案）。留空时回退到 ai.model；
+  # 若模型不支持视觉输入，会自动降级为「手动填写」，不会伪造识别结果。
+  vision-model: ${AI_VISION_MODEL:}
+  max-image-mb: ${AI_MAX_IMAGE_MB:5}
   timeout: ${AI_TIMEOUT:60000}
   max-retries: ${AI_MAX_RETRIES:2}
 

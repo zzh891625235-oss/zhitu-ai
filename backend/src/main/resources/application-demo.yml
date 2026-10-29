@@ -1,0 +1,35 @@
+# =========================================================
+# 智途AI · 一体化演示配置（demo profile）
+# 用法：java -jar zhitu-ai.jar --spring.profiles.active=demo
+# 效果：免装 MySQL，内嵌 H2 数据库自动建表+导入基础数据，
+#       数据持久化到 jar 同级 data/ 目录，重启不丢数据。
+# =========================================================
+
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    # MODE=MySQL 兼容 MySQL 语法；DATABASE_TO_LOWER 统一小写表名；
+    # NON_KEYWORDS=USER 兼容裸 user 表名（H2 中 USER 是保留字）
+    # 注：库文件名 zhitu_ai_v3 —— v1 乱码/v2 JSON 列类型问题，v3 起自动重建干净库
+    url: jdbc:h2:file:./data/zhitu_ai_v3;MODE=MySQL;DATABASE_TO_LOWER=TRUE;NON_KEYWORDS=USER;AUTO_SERVER=TRUE
+    username: sa
+    password:
+
+  # 启动时自动执行建表脚本（schema 为 IF NOT EXISTS，重启幂等）
+  # 专业/课程/演示账号由 SeedDataInitializer 在「major 表为空」时才导入
+  #
+  # 竞赛字典单独走 data-locations 每次启动执行：
+  # 该脚本用 MERGE ... KEY(name) 做幂等 upsert，所以补齐新赛事、修正
+  # 专业对应关系后，用户不需要清空 data/ 目录重建数据库。
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+      continue-on-error: true
+      schema-locations: classpath:db/schema-h2.sql
+      data-locations: classpath:db/competition-seed-h2.sql
+
+# 演示环境日志降噪
+logging:
+  level:
+    com.zhitu: info

@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
-import com.zhitu.ai.MajorDirection;
+import com.zhitu.ai.CompetitionMajorMatcher;
 import com.zhitu.entity.*;
 import com.zhitu.mapper.*;
 import com.zhitu.service.CompetitionRecommendService;
@@ -114,25 +114,9 @@ public class CompetitionRecommendServiceImpl implements CompetitionRecommendServ
      * 包级可见是为了让 CompetitionMajorMatchTest 能直接验证匹配规则。
      */
     boolean matchesMajor(String suitableMajorJson, String majorName) {
-        if (suitableMajorJson == null || suitableMajorJson.trim().isEmpty()) return false;
-        List<String> list;
-        try {
-            list = objectMapper.readValue(suitableMajorJson, new TypeReference<List<String>>() {});
-        } catch (Exception e) {
-            // 脏数据（不是合法 JSON）时退化成包含判断，避免整个推荐失败
-            return majorName != null && !majorName.isEmpty() && suitableMajorJson.contains(majorName);
-        }
-        if (list.contains("*")) return true;
-        if (majorName == null || majorName.isEmpty()) return false;
-        if (list.contains(majorName)) return true;
-
-        MajorDirection mine = MajorDirection.resolve(majorName);
-        if (mine.isGeneral()) return false;
-        for (String s : list) {
-            MajorDirection other = MajorDirection.resolve(s);
-            if (!other.isGeneral() && other == mine) return true;
-        }
-        return false;
+        // 规则唯一实现在 CompetitionMajorMatcher —— 竞赛中心列表页也用它标注「是否对口」，
+        // 两边共用一份判断才不会出现列表与推荐结论矛盾。
+        return CompetitionMajorMatcher.matches(suitableMajorJson, majorName);
     }
 
     private String extractJson(String text) {
@@ -160,13 +144,7 @@ public class CompetitionRecommendServiceImpl implements CompetitionRecommendServ
 
     /** suitable_major 里含 "*" 表示不限专业 */
     private boolean isOpenToAll(String suitableMajorJson) {
-        if (suitableMajorJson == null || suitableMajorJson.trim().isEmpty()) return false;
-        try {
-            List<String> list = objectMapper.readValue(suitableMajorJson, new TypeReference<List<String>>() {});
-            return list.contains("*");
-        } catch (Exception e) {
-            return suitableMajorJson.contains("\"*\"");
-        }
+        return CompetitionMajorMatcher.isOpenToAll(suitableMajorJson);
     }
 
     /**
@@ -207,43 +185,56 @@ public class CompetitionRecommendServiceImpl implements CompetitionRecommendServ
         List<Map<String, Object>> results = new ArrayList<>();
 
         for (Competition c : candidates) {
-            int score = 50;
+            // 权重总和封顶 100，避免各项加分叠加后一律截断成 100 分 ——
+            // 一旦饱和，排序就退化成「随机取前 4 个」，精确对口的比赛会被
+            // 同方向、甚至不限专业的比赛挤掉（天文学曾被推荐动物医学技能大赛）。
+            int score = 40;
             List<String> reasons = new ArrayList<>();
 
-            // 专业对口度。
-            // 注意顺序：必须先判「不限专业」再判「对口」。因为 matchesMajor() 对
-            // suitable_major 为 ["*"] 的竞赛也返回 true，若反过来的话，面向全校的
-            // 英语竞赛会被标成「与你的专业方向对口」——理由不实，分数也虚高。
-            if (isOpenToAll(c.getSuitableMajor())) {
-                score += 10; reasons.add("不限专业，都可以参加");
-            } else if (matchesMajor(c.getSuitableMajor(), majorName)) {
-                score += 35; reasons.add("与你的专业方向对口");
+            // 专业对口度，分三档。
+            // 注意顺序：必须先判「不限专业」。因为匹配对 suitable_major 为 ["*"]
+            // 的竞赛也返回 true，若反过来的话，面向全校的英语竞赛会被标成
+            // 「与你的专业方向对口」——理由不实，分数也虚高。
+            CompetitionMajorMatcher.MatchLevel lvl =
+                CompetitionMajorMatcher.matchLevel(c.getSuitableMajor(), majorName);
+            if (lvl == CompetitionMajorMatcher.MatchLevel.OPEN) {
+                score += 4; reasons.add("不限专业，都可以参加");
+            } else if (lvl == CompetitionMajorMatcher.MatchLevel.EXACT) {
+                score += 30; reasons.add("与你的专业方向对口");
+            } else if (lvl == CompetitionMajorMatcher.MatchLevel.RELATED) {
+                // 同方向但并非为本专业而办，分数明显低于精确对口，避免挤掉更合适的
+                score += 6; reasons.add("属于你的专业大类，可以参加");
             }
 
-            // 难度匹配
+            // 难度匹配（权重刻意压低于专业对口度，专业对不对口才是第一位的）
             if ("BEGINNER".equals(c.getDifficulty()) && ("BEGINNER".equals(level) || "BASIC".equals(level))) {
-                score += 30; reasons.add("难度适合你当前水平");
+                score += 14; reasons.add("难度适合你当前水平");
             } else if ("INTERMEDIATE".equals(c.getDifficulty())) {
-                score += 20; reasons.add("难度适中，有挑战性");
+                score += 12; reasons.add("难度适中，有挑战性");
             } else if ("ADVANCED".equals(c.getDifficulty()) && "ADVANCED".equals(level)) {
-                score += 25; reasons.add("你的能力可以冲击高级比赛");
+                score += 14; reasons.add("你的能力可以冲击高级比赛");
             }
 
             // 年级匹配
             if ("不限".equals(c.getSuitableGrade()) || (c.getSuitableGrade() != null && c.getSuitableGrade().contains(grade))) {
-                score += 15; reasons.add("适合你当前年级");
+                score += 8; reasons.add("适合你当前年级");
             }
 
             // 剩余时间
             long daysLeft = ChronoUnit.DAYS.between(LocalDate.now(),
                 c.getRegistrationEnd() != null ? c.getRegistrationEnd() : LocalDate.now().plusDays(30));
-            if (daysLeft > 30) { score += 15; reasons.add("准备时间充裕（" + daysLeft + "天）"); }
-            else if (daysLeft > 7) { score += 8; reasons.add("还有" + daysLeft + "天，抓紧准备"); }
-            else if (daysLeft > 0) { score += 3; reasons.add("报名即将截止，尽快决定"); }
+            // 剩余时间：分五档而不是两档，否则一批同期截止的赛事会拿到完全相同的
+            // 分数，推荐列表退化成「随机取前 4 个」，评分就失去意义了。
+            // 「还剩 30~90 天」最理想：既来得及系统备赛，又不至于早到会忘。
+            if (daysLeft > 90) { score += 3; reasons.add("报名窗口还很长（" + daysLeft + "天），可以先观望"); }
+            else if (daysLeft > 60) { score += 6; reasons.add("准备时间充裕（" + daysLeft + "天）"); }
+            else if (daysLeft > 30) { score += 9; reasons.add("现在启动备赛节奏刚好（" + daysLeft + "天）"); }
+            else if (daysLeft > 7) { score += 4; reasons.add("还有" + daysLeft + "天，需要抓紧准备"); }
+            else if (daysLeft > 0) { score += 1; reasons.add("报名即将截止，尽快决定"); }
 
-            // 适合高年级的比赛对大一大二降低分数
+            // 适合高年级的比赛对大一降低分数
             if (c.getSuitableGrade() != null && c.getSuitableGrade().contains("大二及以上") && "大一".equals(grade)) {
-                score -= 20;
+                score -= 15;
             }
 
             Map<String, Object> item = new LinkedHashMap<>();
@@ -256,13 +247,35 @@ public class CompetitionRecommendServiceImpl implements CompetitionRecommendServ
             item.put("officialUrl", c.getOfficialUrl());
             item.put("daysLeft", daysLeft);
             item.put("recommendDays", c.getRecommendDays());
-            item.put("score", Math.min(100, score));
+            item.put("score", Math.max(0, Math.min(100, score)));
             item.put("reasons", reasons);
+            item.put("matchLevel", lvl == null ? null : lvl.name());
             results.add(item);
         }
 
-        results.sort((a, b) -> ((Integer) b.get("score")).compareTo((Integer) a.get("score")));
+        // 先按对口程度分档，再按分数排 —— 只按分数排的话，某场面向全校的比赛
+        // 因为时间宽裕拿了高分，就会挤掉真正为本专业而办的那一场。
+        results.sort((a, b) -> {
+            int ra = levelRank(a.get("matchLevel")), rb = levelRank(b.get("matchLevel"));
+            if (ra != rb) return Integer.compare(rb, ra);
+            return ((Integer) b.get("score")).compareTo((Integer) a.get("score"));
+        });
         return results.subList(0, Math.min(4, results.size()));
+    }
+
+    /**
+     * 对口程度排序权重：精确对口 > 不限专业 > 同方向。
+     *
+     * <p>「不限专业」排在「同方向」之前是有意的：挑战杯、互联网+ 这类面向全校的
+     * 比赛含金量高、人人可参加，而「同方向」只是方向划分的粗略兜底
+     * （天文学与动物医学同属理学，硬凑在一起会显得很不对应）。
+     */
+    private static int levelRank(Object level) {
+        if (level == null) return 0;
+        if (CompetitionMajorMatcher.MatchLevel.EXACT.name().equals(level)) return 3;
+        if (CompetitionMajorMatcher.MatchLevel.OPEN.name().equals(level)) return 2;
+        if (CompetitionMajorMatcher.MatchLevel.RELATED.name().equals(level)) return 1;
+        return 0;
     }
 }
 
