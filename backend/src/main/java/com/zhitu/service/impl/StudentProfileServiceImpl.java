@@ -41,6 +41,16 @@ public class StudentProfileServiceImpl implements StudentProfileService {
 
     @Override
     public StudentProfile saveProfile(Long userId, StudentProfile profile) {
+        // 换专业时要清掉旧方向的自评数据：
+        // 计算机/电子信息方向的自评直接落在 9 个编程字段上，前端不会再发
+        // skillAssessment；而 updateById 跳过 null 字段，旧方向（如医学类）
+        // 的自评 JSON 会一直残留在库里，污染画像与 Agent 工具的结果。
+        // 这里显式写成空串（非 null，能被更新；下游按空白视为「无」）。
+        String majorName = resolveMajorName(profile.getMajorId());
+        if (MajorDirection.isIT(majorName)
+                && (profile.getSkillAssessment() == null || profile.getSkillAssessment().trim().isEmpty())) {
+            profile.setSkillAssessment("");
+        }
         // 查询是否已有档案
         StudentProfile existing = profileMapper.selectOne(
             new LambdaQueryWrapper<StudentProfile>().eq(StudentProfile::getUserId, userId));
@@ -145,7 +155,13 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         // 能力自评：计算机/电子信息专业用那 9 个编程字段，
         // 其它专业用 skillAssessment 里保存的通用能力项。
         // 否则会给临床医学的学生塞一堆「Java基础」「数据结构」，纯属噪声。
-        String skillText = describeSkillAssessment(p.getSkillAssessment());
+        //
+        // 注意必须按「当前专业方向」来选，而不是「skillAssessment 有没有值」：
+        // 学生换过专业时，旧方向的自评 JSON 还留在库里（前端改专业后不会重发该字段，
+        // updateById 又跳过 null），若只看有没有值，就会把数据科学学生的画像
+        // 按残留的「医学类自评」生成——AI 只能如实报告两者对不上。
+        String majorName = resolveMajorName(p.getMajorId());
+        String skillText = MajorDirection.isIT(majorName) ? null : describeSkillAssessment(p.getSkillAssessment());
         if (skillText != null) {
             sb.append("专业能力自评：\n").append(skillText);
         } else {

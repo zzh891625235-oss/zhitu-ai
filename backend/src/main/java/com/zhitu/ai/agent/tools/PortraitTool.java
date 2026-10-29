@@ -3,9 +3,12 @@ package com.zhitu.ai.agent.tools;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhitu.ai.MajorDirection;
 import com.zhitu.ai.agent.JsonTool;
 import com.zhitu.ai.agent.ToolSchemas;
+import com.zhitu.entity.Major;
 import com.zhitu.entity.StudentProfile;
+import com.zhitu.mapper.MajorMapper;
 import com.zhitu.mapper.StudentProfileMapper;
 import org.springframework.stereotype.Component;
 
@@ -22,10 +25,12 @@ import java.util.*;
 public class PortraitTool extends JsonTool {
 
     private final StudentProfileMapper profileMapper;
+    private final MajorMapper majorMapper;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public PortraitTool(StudentProfileMapper profileMapper) {
+    public PortraitTool(StudentProfileMapper profileMapper, MajorMapper majorMapper) {
         this.profileMapper = profileMapper;
+        this.majorMapper = majorMapper;
     }
 
     @Override
@@ -57,9 +62,17 @@ public class PortraitTool extends JsonTool {
         }
         out.put("available", true);
 
-        // 九项能力自评：skillAssessment 存的是 {direction, items:[{label,value}]}
+        // 能力自评有两套存储，按「当前专业方向」选一套，不能并存着都读：
+        //   计算机/电子信息方向 -> 9 个编程字段（下面的 legacyLevels）；
+        //   其它方向           -> skillAssessment JSON（{template, items:[{label,value}]}）。
+        // 学生换过专业时旧方向的 JSON 可能仍留在库里；不按方向区分的话，
+        // 数据科学的学生会被 Agent 当成「医学类自评全零基础」。
+        String majorName = resolveMajorName(p.getMajorId());
+        boolean it = MajorDirection.isIT(majorName);
+        out.put("majorDirection", MajorDirection.resolve(majorName).label());
+
         List<Map<String, Object>> items = new ArrayList<>();
-        if (p.getSkillAssessment() != null && !p.getSkillAssessment().trim().isEmpty()) {
+        if (!it && p.getSkillAssessment() != null && !p.getSkillAssessment().trim().isEmpty()) {
             try {
                 JsonNode root = mapper.readTree(p.getSkillAssessment());
                 JsonNode arr = root.isArray() ? root : root.get("items");
@@ -78,7 +91,8 @@ public class PortraitTool extends JsonTool {
         out.put("skillCount", items.size());
         out.put("skills", items);
 
-        // 单列的老字段（部分专业方向仍写入），有值时一并给出
+        // 计算机/电子信息方向的能力自评就写在这 9 个字段上（历史命名沿用 legacy）；
+        // 其它方向若恰好也有值（例如换专业前填过），一并给出供参考
         Map<String, Object> legacy = new LinkedHashMap<>();
         putIfNotBlank(legacy, "programming", p.getProgrammingLevel());
         putIfNotBlank(legacy, "java", p.getJavaLevel());
@@ -103,6 +117,18 @@ public class PortraitTool extends JsonTool {
         return json(out);
     }
 
+    private String resolveMajorName(Long majorId) {
+        if (majorId == null) {
+            return "";
+        }
+        try {
+            Major major = majorMapper.selectById(majorId);
+            return major == null ? "" : String.valueOf(major.getName());
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     private void putIfNotBlank(Map<String, Object> map, String key, String value) {
         if (value != null && !value.trim().isEmpty()) {
             map.put(key, value);
@@ -114,3 +140,4 @@ public class PortraitTool extends JsonTool {
         return "private:student_profile";
     }
 }
+
