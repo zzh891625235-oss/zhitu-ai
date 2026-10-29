@@ -54,6 +54,10 @@ public class DeepSeekProvider implements AIService {
     @Value("${ai.model:deepseek-chat}")
     private String systemModel;
 
+    /** 视觉模型：留空时回退到 ai.model（此时若模型不支持视觉，会降级为手动填写） */
+    @Value("${ai.vision-model:}")
+    private String visionModel;
+
     @Value("${ai.timeout:60000}")
     private int timeout;
 
@@ -66,6 +70,12 @@ public class DeepSeekProvider implements AIService {
 
     /** 记录每位用户最近一次调用是否真的命中了大模型 */
     private final Map<Long, Boolean> lastCallReal = new ConcurrentHashMap<>();
+
+    /**
+     * 当前模型是否支持 tools 参数。
+     * 一旦收到不支持的错误就永久关闭（进程内），避免每条消息都白白多打一次网络请求。
+     */
+    private volatile boolean toolsSupported = true;
 
     public DeepSeekProvider(UserSettingsMapper settingsMapper) {
         this.settingsMapper = settingsMapper;
@@ -154,6 +164,115 @@ public class DeepSeekProvider implements AIService {
             return settings.getApiKey();
         }
         return systemApiKey;
+    }
+
+    @Override
+    public String visionForUser(Long userId, String instruction, String base64, String mime) {
+        UserSettings settings = loadSettings(userId);
+        String key = firstNonBlank(settings == null ? null : settings.getApiKey(), systemApiKey);
+        String url = firstNonBlank(settings == null ? null : settings.getApiUrl(), systemApiUrl);
+        String model = firstNonBlank(visionModel, systemModel);
+        if (!isConfigured(key) || base64 == null || base64.isEmpty()) {
+            return null;
+        }
+        String type = mime == null || mime.isEmpty() ? "image/jpeg" : mime;
+        try {
+            String out = callVisionApi(instruction, "data:" + type + ";base64," + base64, key, url, model);
+            if (out != null && !out.trim().isEmpty()) {
+                markCall(userId, true);
+                return out;
+            }
+        } catch (Exception e) {
+            log.warn("图像理解失败（模型 {} 可能不支持视觉输入）：{}", model, e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * 图文混合输入（OpenAI 协议的 content 数组形式）。
+     *
+     * 注意：图像 token 消耗远高于文本，所以这里<b>不做重试</b>，
+     * 失败就让上层提示用户手动填写，避免一次点击烧掉大量额度。
+     */
+    @SuppressWarnings("unchecked")
+    private String callVisionApi(String instruction, String dataUrl, String key, String url, String model) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(key);
+
+        Map<String, Object> textPart = new LinkedHashMap<>();
+        textPart.put("type", "text");
+        textPart.put("text", instruction);
+        Map<String, Object> imagePart = new LinkedHashMap<>();
+        imagePart.put("type", "image_url");
+        Map<String, Object> imageUrl = new LinkedHashMap<>();
+        imageUrl.put("url", dataUrl);
+        imagePart.put("image_url", imageUrl);
+
+        Map<String, Object> user = new LinkedHashMap<>();
+        user.put("role", "user");
+        user.put("content", new Object[]{textPart, imagePart});
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("messages", Collections.singletonList(user));
+        body.put("temperature", 0.1);
+        body.put("max_tokens", 800);
+
+        ResponseEntity<Map> response =
+                restTemplate.postForEntity(chatEndpoint(url), new HttpEntity<>(body, headers), Map.class);
+        Map<String, Object> result = response.getBody();
+        if (result == null) {
+            return null;
+        }
+        Object choices = result.get("choices");
+        if (!(choices instanceof List) || ((List<?>) choices).isEmpty()) {
+            return null;
+        }
+        Object message = ((Map<String, Object>) ((List<?>) choices).get(0)).get("message");
+        if (message instanceof Map) {
+            Object content = ((Map<?, ?>) message).get("content");
+            return content == null ? null : content.toString();
+        }
+        return null;
+    }
+
+    @Override
+    public ModelReply chatWithTools(String systemPrompt, List<Map<String, Object>> messages,
+                                    List<Map<String, Object>> tools, Long userId) {
+        if (!toolsSupported) {
+            return null;
+        }
+        UserSettings settings = loadSettings(userId);
+        String key = firstNonBlank(settings == null ? null : settings.getApiKey(), systemApiKey);
+        String url = firstNonBlank(settings == null ? null : settings.getApiUrl(), systemApiUrl);
+        String model = firstNonBlank(settings == null ? null : settings.getModel(), systemModel);
+        if (!isConfigured(key)) {
+            return null;
+        }
+
+        int attempts = Math.max(1, maxRetries);
+        for (int i = 1; i <= attempts; i++) {
+            try {
+                ModelReply reply = callToolsApi(systemPrompt, messages, tools, key, url, model);
+                if (reply != null) {
+                    markCall(userId, true);
+                    return reply;
+                }
+                log.warn("工具调用返回为空（第 {}/{} 次）", i, attempts);
+            } catch (Exception e) {
+                log.warn("工具调用失败（第 {}/{} 次）：{}", i, attempts, e.getMessage());
+                // 400 通常是该模型/网关不认识 tools 字段，关掉开关避免每次对话都空跑一次
+                String msg = e.getMessage();
+                if (msg != null && (msg.contains("400") || msg.toLowerCase().contains("tool"))) {
+                    toolsSupported = false;
+                    log.warn("当前模型似乎不支持 tools 参数，后续对话将切换到本地规则编排模式：model={}", model);
+                    break;
+                }
+            }
+        }
+        // 返回 null 是一种明确的信号：上层应当降级，而不是把工具结果伪装成模型决策
+        return null;
     }
 
     @Override
@@ -289,6 +408,88 @@ public class DeepSeekProvider implements AIService {
             // 单行解析失败不影响整体流
         }
         return null;
+    }
+
+    /**
+     * 发起一次带工具声明的请求，并把响应解析成 {@link ModelReply}。
+     *
+     * 响应里可能出现两种形态之一：
+     *  1. 直接给出 content —— 模型认为不需要查任何东西，可以直接回答；
+     *  2. 给出 tool_calls 且 content 为空 —— 模型请求先执行工具。
+     * 两种情况都统一包装返回，由上层决定下一步。
+     */
+    @SuppressWarnings("unchecked")
+    private ModelReply callToolsApi(String systemPrompt, List<Map<String, Object>> messages,
+                                    List<Map<String, Object>> tools, String key, String url, String model) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(key);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("messages", buildMessages(systemPrompt, messages));
+        // 工具调用阶段刻意压低温度：这里要的是稳定的结构化决策，不是文采
+        body.put("temperature", 0.2);
+        if (tools != null && !tools.isEmpty()) {
+            body.put("tools", tools);
+            body.put("tool_choice", "auto");
+        }
+
+        ResponseEntity<Map> response =
+                restTemplate.postForEntity(chatEndpoint(url), new HttpEntity<>(body, headers), Map.class);
+        Map<String, Object> result = response.getBody();
+        if (result == null) {
+            return null;
+        }
+        Object choices = result.get("choices");
+        if (!(choices instanceof List) || ((List<?>) choices).isEmpty()) {
+            return null;
+        }
+        Object message = ((Map<String, Object>) ((List<?>) choices).get(0)).get("message");
+        if (!(message instanceof Map)) {
+            return null;
+        }
+        Map<String, Object> msg = (Map<String, Object>) message;
+
+        ModelReply reply = new ModelReply();
+        Object content = msg.get("content");
+        reply.setContent(content == null ? "" : content.toString());
+        reply.setFinishReason(String.valueOf(((Map<String, Object>) ((List<?>) choices).get(0)).get("finish_reason")));
+
+        Object toolCalls = msg.get("tool_calls");
+        if (toolCalls instanceof List) {
+            for (Object tc : (List<?>) toolCalls) {
+                if (!(tc instanceof Map)) {
+                    continue;
+                }
+                Map<String, Object> call = (Map<String, Object>) tc;
+                Object fn = call.get("function");
+                if (!(fn instanceof Map)) {
+                    continue;
+                }
+                Map<String, Object> f = (Map<String, Object>) fn;
+                reply.getToolCalls().add(new ModelReply.ToolCall(
+                        String.valueOf(call.get("id")),
+                        String.valueOf(f.get("name")),
+                        f.get("arguments") == null ? "{}" : String.valueOf(f.get("arguments"))));
+            }
+        }
+        return reply;
+    }
+
+    /** 把系统提示拼到对话历史最前面：tools 请求需要自己携带完整上下文 */
+    private List<Map<String, Object>> buildMessages(String systemPrompt, List<Map<String, Object>> messages) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        if (systemPrompt != null && !systemPrompt.isEmpty()) {
+            Map<String, Object> sys = new LinkedHashMap<>();
+            sys.put("role", "system");
+            sys.put("content", systemPrompt);
+            list.add(sys);
+        }
+        if (messages != null) {
+            list.addAll(messages);
+        }
+        return list;
     }
 
     private Map<String, Object> buildRequestBody(String systemPrompt, String userMessage, String model, boolean stream) {
