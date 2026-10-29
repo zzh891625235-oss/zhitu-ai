@@ -1,6 +1,6 @@
 <template>
   <div class="auth-page">
-    <div class="auth-bg"><div class="bg-glow"></div></div>
+    <AppBackground />
     <div class="auth-card">
       <div class="brand"><span class="brand-dot"></span><h1>登录</h1><p>AI大学生成长规划平台</p></div>
       <el-form ref="formRef" :model="form" :rules="rules" @keyup.enter="handleLogin">
@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { ref,reactive } from 'vue'; import { useRouter } from 'vue-router'; import { useUserStore } from '../stores/user'; import { ElMessage } from 'element-plus'; import { MagicStick } from '@element-plus/icons-vue'
+import { ref,reactive } from 'vue'; import { useRouter } from 'vue-router'; import { useUserStore } from '../stores/user'; import { ElMessage } from 'element-plus'; import { MagicStick } from '@element-plus/icons-vue'; import AppBackground from '../components/AppBackground.vue'
 const router=useRouter(); const userStore=useUserStore(); const loading=ref(false); const formRef=ref(null); const demoLoading=ref(false)
 const form=reactive({phone:'',password:''}); const rules={phone:[{required:true,message:'请输入手机号',trigger:'blur'}],password:[{required:true,message:'请输入密码',trigger:'blur'}]}
 async function handleLogin(){const v=await formRef.value.validate().catch(()=>false);if(!v)return;loading.value=true;try{await userStore.login(form.phone,form.password);ElMessage.success('欢迎回来');router.push('/home')}catch(e){}finally{loading.value=false}}
@@ -41,11 +41,16 @@ async function handleDemoLogin(){
 <style scoped>
 .auth-page{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--void);position:relative;padding:24px;gap:20px}
 .auth-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}.bg-glow{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(139,195,74,.04) 0%,transparent 70%)}
-.auth-card{width:380px;padding:40px 34px 32px;background:var(--glass);border:1px solid var(--border);border-radius:14px;position:relative;z-index:1;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.auth-card{width:380px;max-width:100%;padding:40px 34px 32px;background:var(--glass);border:1px solid var(--border);border-radius:14px;position:relative;z-index:1;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
 .brand{text-align:center;margin-bottom:32px}.brand-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#8BC34A;margin-bottom:14px;animation:breathe 4s ease-in-out infinite}.brand h1{font-size:22px;font-weight:300;color:#fff;letter-spacing:.04em}.brand p{font-size:12px;color:var(--fog);margin-top:4px;font-weight:300}
 .fg{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}.fg label{font-size:11px;font-weight:500;color:var(--mist);letter-spacing:.06em;text-transform:uppercase}
 .submit-btn{width:100%;height:44px;font-size:14px!important;font-weight:400!important;letter-spacing:.04em}
 .foot{text-align:center;margin-top:18px;font-size:13px;color:var(--fog);font-weight:300}.link{color:#8BC34A;margin-left:4px;font-weight:400}.link:hover{opacity:.8}
 .demo-tip{text-align:center;margin-top:6px;padding-top:14px;border-top:1px solid var(--border-soft)}
 .quote{font-size:12px;color:var(--fog);text-align:center;position:relative;z-index:1;font-weight:300;letter-spacing:.02em}
+
+@media (max-width:480px){
+  .auth-page{padding:16px}
+  .auth-card{padding:30px 22px 24px}
+}
 </style>

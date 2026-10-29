@@ -24,9 +24,12 @@
     </section>
 
     <section class="loop" v-if="profile">
-      <div class="loop-track"><div class="ln" v-for="(n,i) in loopNodes" :key="i" :class="{done:i<=loopDone}" :style="{'--i':i}"><span class="ln-dot"></span><span class="ln-ico">{{ n.icon }}</span><span class="ln-lbl">{{ n.label }}</span></div></div>
+      <div class="loop-track"><div class="ln" v-for="(n,i) in loopNodes" :key="i" :class="{done:i<loopStep,next:i===loopStep,clickable:!!n.to}" :style="{'--i':i}" @click="n.to&&$router.push(n.to)"><span class="ln-dot"></span><span class="ln-ico">{{ n.icon }}</span><span class="ln-lbl">{{ n.label }}</span></div></div>
       <div class="loop-bar"><div class="loop-fill" :style="{width:loopPercent+'%'}"></div></div>
-      <p class="loop-hint">{{ loopHint }}</p>
+      <div class="loop-foot">
+        <span class="loop-hint">{{ loopHint }}</span>
+        <el-button v-if="loopAction" type="primary" size="small" round :loading="loopBusy" @click="handleLoopAction">{{ loopAction.text }}</el-button>
+      </div>
     </section>
 
     <div class="stats" v-if="profile">
@@ -51,25 +54,40 @@
         </el-card>
       </div>
     </div>
-    <div v-else-if="profile===null" style="text-align:center;padding:60px 0;color:var(--fog)"><p>还没有成长档案</p><el-button type="primary" @click="$router.push('/init')" style="margin-top:12px">开始AI档案初始化</el-button></div>
+    <div v-else-if="profileLoaded" style="text-align:center;padding:60px 0;color:var(--fog)"><p>还没有成长档案</p><el-button type="primary" @click="$router.push('/init')" style="margin-top:12px">开始AI档案初始化</el-button></div>
   </div>
 </template>
 
 <script setup>
-import { ref,computed,onMounted,onUnmounted,nextTick,watch } from 'vue'; import { useUserStore } from '../stores/user'; import { Medal,Reading,TrophyBase,Timer,InfoFilled } from '@element-plus/icons-vue'; import * as echarts from 'echarts/core'; import { RadarChart } from 'echarts/charts'; import { RadarComponent,TooltipComponent } from 'echarts/components'; import { CanvasRenderer } from 'echarts/renderers'; import { getProfileApi,getPortraitApi } from '../api/profile'; import { getPlanApi } from '../api/plan'; import { getStudyPlanApi } from '../api/studyplan'; import { getAiStatusApi } from '../api/ai'
+import { ref,computed,onMounted,onUnmounted,nextTick,watch } from 'vue'; import { useRouter } from 'vue-router'; import { ElMessage } from 'element-plus'; import { useUserStore } from '../stores/user'; import { Medal,Reading,TrophyBase,Timer,InfoFilled } from '@element-plus/icons-vue'; import * as echarts from 'echarts/core'; import { RadarChart } from 'echarts/charts'; import { RadarComponent,TooltipComponent } from 'echarts/components'; import { CanvasRenderer } from 'echarts/renderers'; import { getProfileApi,getPortraitApi } from '../api/profile'; import { getPlanApi,generatePlanApi } from '../api/plan'; import { getStudyPlanApi } from '../api/studyplan'; import { getAiStatusApi } from '../api/ai'
 // 按需注册 ECharts 模块，避免把整个 echarts（约 1MB）打进首屏包
 echarts.use([RadarChart,RadarComponent,TooltipComponent,CanvasRenderer])
-const userStore=useUserStore(); const radarChart=ref(null); const profile=ref(null); const portrait=ref(null); const hasPlan=ref(false); const hasRecords=ref(false); const aiConfigured=ref(null); let chartInstance=null
+const userStore=useUserStore(); const router=useRouter(); const radarChart=ref(null); const profile=ref(null); const profileLoaded=ref(false); const portrait=ref(null); const hasPlan=ref(false); const hasRecords=ref(false); const aiConfigured=ref(null); let chartInstance=null
 const majorName=computed(()=>profile.value?.majorName||'')
 const overall=computed(()=>{const s=portrait.value?.scores;if(!s)return 0;const v=[s.programming,s.algorithm,s.project,s.competition,s.ai,s.english].filter(x=>x>0);return v.length?Math.round(v.reduce((a,b)=>a+b)/v.length):0})
 const h=new Date().getHours(); const greetingText=computed(()=>h<12?'早上好':h<18?'下午好':'晚上好')
-const loopNodes=[{icon:'📋',label:'学生数据'},{icon:'🧠',label:'AI画像'},{icon:'🎯',label:'AI规划'},{icon:'✏️',label:'学习执行'},{icon:'📊',label:'AI分析'},{icon:'🔄',label:'动态调整'}]
-const loopDone=computed(()=>{let d=0;if(profile.value)d=1;if(portrait.value)d=2;if(hasPlan.value)d=3;if(hasRecords.value)d=5;return d})
-const loopPercent=computed(()=>Math.min(100,(loopDone.value/5)*100))
-const loopHint=computed(()=>{if(!portrait.value)return '完成档案初始化，开启AI成长闭环';if(!hasPlan.value)return 'AI画像已生成 — 去生成你的四年规划';if(!hasRecords.value)return '规划就绪 — 开始打卡，AI动态调整';return '闭环运转中 — AI持续分析学习数据'})
+// 六个环节都给出跳转目标：改动前它们是纯展示元素，点了没有任何反应，
+// 配上「未点亮」的灰态，很容易被当成「后面这几步没有功能」。
+const loopNodes=[{icon:'📋',label:'学生数据',to:'/init'},{icon:'🧠',label:'AI画像',to:'/init'},{icon:'🎯',label:'AI规划',to:'/home/plan'},{icon:'✏️',label:'学习执行',to:'/home/growth'},{icon:'📊',label:'AI分析',to:'/home/growth'},{icon:'🔄',label:'动态调整',to:'/home/plan'}]
+// loopStep = 已完成的环节数；第 loopStep 个节点即「下一步」，单独高亮引导点击。
+// 旧写法直接用 i<=loopDone 判断，会把尚未开始的环节也标成已完成，语义不准。
+const loopStep=computed(()=>{let s=0;if(profile.value)s=1;if(portrait.value)s=2;if(hasPlan.value)s=3;if(hasRecords.value)s=6;return s})
+const loopPercent=computed(()=>Math.round((loopStep.value/loopNodes.length)*100))
+const loopHint=computed(()=>{if(!portrait.value)return '完成档案初始化，开启AI成长闭环';if(!hasPlan.value)return 'AI画像已生成 — 还差一步：生成四年规划';if(!hasRecords.value)return '规划就绪 — 去学习打卡，AI 会跟着动态调整';return '闭环运转中 — AI持续分析学习数据'})
+// 缺口在哪一步，就把那一步直接变成按钮，避免用户找不到入口
+const loopBusy=ref(false)
+const loopAction=computed(()=>{if(!portrait.value)return{text:'去初始化档案',mode:'go',to:'/init'};if(!hasPlan.value)return{text:'一键生成四年规划',mode:'plan'};if(!hasRecords.value)return{text:'去学习打卡',mode:'go',to:'/home/growth'};return null})
+async function handleLoopAction(){
+  if(!loopAction.value)return
+  if(loopAction.value.mode==='go'){router.push(loopAction.value.to);return}
+  loopBusy.value=true
+  try{await generatePlanApi();hasPlan.value=true;ElMessage.success('四年规划已生成')}
+  catch(e){ElMessage.error('生成失败，请稍后再试')}
+  finally{loopBusy.value=false}
+}
 const stats=computed(()=>[{icon:Medal,value:overall.value+'分',label:'综合能力',bg:'rgba(139,195,74,.12)',color:'#8BC34A'},{icon:Reading,value:'12门',label:'推荐课程',bg:'rgba(102,187,106,.08)',color:'#66BB6A'},{icon:TrophyBase,value:'6个',label:'推荐竞赛',bg:'rgba(168,85,247,.12)',color:'#A855F7'},{icon:Timer,value:loopPercent.value+'%',label:'闭环完成',bg:'rgba(239,83,80,.08)',color:'#EF5350'}])
 const quicks=[{icon:'🎯',label:'四年规划',to:'/home/plan'},{icon:'📖',label:'知识地图',to:'/home/courses'},{icon:'🏆',label:'竞赛推荐',to:'/home/competitions'},{icon:'🤖',label:'AI助手',to:'/home/assistant'},{icon:'📊',label:'学习打卡',to:'/home/growth'},{icon:'📄',label:'AI简历',to:'/home/resume'}]
-onMounted(async()=>{try{profile.value=(await getProfileApi()).data}catch(e){}try{portrait.value=(await getPortraitApi()).data}catch(e){}try{await getPlanApi();hasPlan.value=true}catch(e){}try{const p=(await getStudyPlanApi()).data;hasRecords.value=p.length>0}catch(e){}try{aiConfigured.value=(await getAiStatusApi()).data?.configured===true}catch(e){}await nextTick();renderRadar();window.addEventListener('resize',handleResize)})
+onMounted(async()=>{try{profile.value=(await getProfileApi()).data||null}catch(e){}finally{profileLoaded.value=true}try{portrait.value=(await getPortraitApi()).data||null}catch(e){}try{hasPlan.value=!!(await getPlanApi()).data}catch(e){}try{const p=(await getStudyPlanApi()).data;hasRecords.value=Array.isArray(p)&&p.length>0}catch(e){}try{aiConfigured.value=(await getAiStatusApi()).data?.configured===true}catch(e){}await nextTick();renderRadar();window.addEventListener('resize',handleResize)})
 onUnmounted(()=>{window.removeEventListener('resize',handleResize);if(chartInstance){chartInstance.dispose();chartInstance=null}})
 watch(portrait,async()=>{await nextTick();renderRadar()})
 function handleResize(){chartInstance?.resize()}
@@ -106,7 +124,7 @@ function renderRadar(){
 .ai-guide .el-button{flex-shrink:0}
 .welcome{display:flex;align-items:flex-start;justify-content:space-between;padding:8px 0 0}.wl-left{flex:1}.wl-greet{font-size:13px;color:var(--mist);font-weight:400;margin-bottom:4px}.wl-left h1{font-size:30px;font-weight:300;color:#fff;margin-bottom:8px;letter-spacing:.02em}.wl-desc{font-size:14px;color:var(--mist);max-width:500px;line-height:1.7;font-weight:300}.wl-meta{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--fog)}.wl-sep{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.08)}.wl-st{color:#66BB6A}
 .ring{position:relative;width:120px;height:120px;flex-shrink:0}.ring-fill{transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)}.ring-c{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}.ring-n{display:block;font-size:26px;font-weight:300;color:#8BC34A}.ring-l{display:block;font-size:10px;color:var(--fog);margin-top:2px;letter-spacing:.06em}
-.loop{background:var(--glass);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 32px 18px;backdrop-filter:blur(24px)}.loop-track{display:flex;align-items:center;justify-content:space-between}.ln{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.08);text-align:center;flex:1;opacity:0;animation:fadein .4s cubic-bezier(.22,.61,.36,1) forwards;animation-delay:calc(var(--i)*.12s)}.ln.done{color:#8BC34A}.ln-dot{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.08)}.ln.done .ln-dot{background:#8BC34A}.ln-ico{font-size:20px;filter:grayscale(1);opacity:.3;transition:all .4s}.ln.done .ln-ico{filter:grayscale(0);opacity:1}.ln-lbl{font-weight:400}.ln.done .ln-lbl{font-weight:500}.loop-bar{height:2px;background:rgba(255,255,255,.03);border-radius:1px;margin:14px 0 6px;overflow:hidden}.loop-fill{height:100%;border-radius:1px;background:#8BC34A;transition:width .8s cubic-bezier(.4,0,.2,1)}.loop-hint{text-align:center;font-size:11px;color:var(--fog);font-weight:300}@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.loop{background:var(--glass);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 32px 18px;backdrop-filter:blur(24px)}.loop-track{display:flex;align-items:center;justify-content:space-between}.ln{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.08);text-align:center;flex:1;opacity:0;animation:fadein .4s cubic-bezier(.22,.61,.36,1) forwards;animation-delay:calc(var(--i)*.12s)}.ln.done{color:#8BC34A}.ln-dot{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.08)}.ln.done .ln-dot{background:#8BC34A}.ln-ico{font-size:20px;filter:grayscale(1);opacity:.3;transition:all .4s}.ln.done .ln-ico{filter:grayscale(0);opacity:1}.ln-lbl{font-weight:400}.ln.done .ln-lbl{font-weight:500}.ln.next .ln-ico{filter:grayscale(0);opacity:1}.ln.next .ln-lbl{color:var(--signal);font-weight:500}.ln.next .ln-dot{background:var(--signal);animation:pulse 1.8s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}.loop-bar{height:2px;background:rgba(255,255,255,.03);border-radius:1px;margin:14px 0 6px;overflow:hidden}.loop-fill{height:100%;border-radius:1px;background:#8BC34A;transition:width .8s cubic-bezier(.4,0,.2,1)}.loop-hint{text-align:center;font-size:11px;color:var(--fog);font-weight:300}.loop-foot{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}.ln.clickable{cursor:pointer}.ln.clickable:hover .ln-lbl{color:#fff}.ln.clickable:hover .ln-ico{filter:grayscale(0);opacity:.85}@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.st{display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:var(--radius);background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(24px);transition:border-color .3s}.st:hover{border-color:rgba(255,255,255,.08)}.st-ic{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center}.st-v{display:block;font-size:16px;font-weight:500;color:#fff;line-height:1.2}.st-l{display:block;font-size:10px;color:var(--fog);margin-top:1px;letter-spacing:.04em}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;margin-bottom:32px}.ct{font-size:14px;font-weight:400;color:#fff;letter-spacing:.02em}.pt{font-size:13px;color:var(--mist);line-height:1.75;margin-bottom:14px;font-weight:300}.trs{display:flex;flex-direction:column;gap:8px}.tr{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:6px;font-size:12px}.tr.good{background:rgba(102,187,106,.08)}.tr.warn{background:rgba(239,83,80,.08)}.tr-l{font-weight:500;color:#fff;flex-shrink:0;min-width:32px}.tr span:last-child{color:var(--mist);line-height:1.6;font-weight:300}.suggs{display:flex;flex-direction:column;gap:6px}.sg{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:6px;font-size:12px;color:var(--mist);line-height:1.6;background:rgba(255,255,255,.02);font-weight:300}.sg-n{width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;background:#8BC34A;color:#fff;font-size:10px;font-weight:500;flex-shrink:0}.radar-box{width:100%;height:280px}.qks{display:grid;grid-template-columns:1fr 1fr;gap:6px}.qk{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12px;color:var(--mist);background:rgba(255,255,255,.015);border:1px solid rgba(255,255,255,.03);transition:all .3s;font-weight:300}.qk:hover{border-color:rgba(255,255,255,.1);color:#fff}.qk-ic{font-size:15px}
 

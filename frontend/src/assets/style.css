@@ -76,11 +76,13 @@ a{text-decoration:none;color:inherit}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.04);border-radius:10px}
 
-/* 页面过渡 — 慢速优雅 */
-.page-enter-active{animation:page-in .5s cubic-bezier(.16,1,.3,1)}
-.page-leave-active{animation:page-out .25s cubic-bezier(.16,1,.3,1)}
-@keyframes page-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes page-out{from{opacity:1}to{opacity:0}}
+/* 页面过渡 — 交叉淡入
+   旧页绝对定位后立即腾出布局空间，新页同时入场，两者重叠过渡而不是
+   「先黑一下再出现」，所以连续切换模块时视觉是连贯的。 */
+.page-enter-active{animation:page-in .5s cubic-bezier(.16,1,.3,1) both}
+.page-leave-active{animation:page-out .28s cubic-bezier(.4,0,.2,1) both;position:absolute;top:0;left:0;right:0;width:100%;pointer-events:none}
+@keyframes page-in{from{opacity:0;transform:translateY(10px) scale(.996)}to{opacity:1;transform:none}}
+@keyframes page-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-6px) scale(.998)}}
 @keyframes breathe{0%,100%{opacity:.4}50%{opacity:.8}}
 @keyframes reveal-up{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
 
@@ -112,7 +114,51 @@ a{text-decoration:none;color:inherit}
 .el-input__inner{color:var(--white)!important;font-weight:300!important}
 .el-input__inner::placeholder{color:var(--fog)!important}
 
+/* ------------------------------------------------------------
+   下拉选择器
+   Element Plus 2.4 起 el-select 的内部结构由 el-input__wrapper 改为
+   el-select__wrapper，旧写法覆盖不到，会露出浅色主题的白底。
+   两套类名都保留，升级/降级都不会破相。
+   ------------------------------------------------------------ */
 .el-select .el-input__wrapper{border-radius:var(--radius)!important}
+.el-select__wrapper{
+  background:rgba(255,255,255,.03)!important;
+  border:1px solid var(--border)!important;
+  box-shadow:none!important;
+  border-radius:var(--radius)!important;
+  padding:4px 11px!important;
+  min-height:32px;
+  transition:border-color var(--transition-fast),box-shadow var(--transition-fast)!important;
+}
+.el-select__wrapper:hover{border-color:rgba(255,255,255,.1)!important}
+.el-select__wrapper.is-focused{border-color:var(--signal)!important;box-shadow:0 0 0 3px var(--signal-dim)!important}
+.el-select__wrapper.is-disabled{background:rgba(255,255,255,.02)!important}
+.el-select__placeholder{color:var(--fog)!important;font-weight:300!important}
+.el-select__placeholder.is-transparent{color:var(--fog)!important}
+.el-select__selected-item,.el-select__text{color:var(--white)!important;font-weight:300!important}
+.el-select__caret,.el-select__suffix,.el-select__icon{color:var(--fog)!important}
+.el-select__tags-text{color:var(--white)!important}
+
+/* 下拉面板（会被 teleport 到 body，必须写在全局） */
+.el-select__popper.el-popper{
+  background:rgba(10,10,14,.97)!important;
+  border:1px solid var(--border)!important;
+  border-radius:var(--radius-lg)!important;
+  box-shadow:0 16px 48px rgba(0,0,0,.6)!important;
+  backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);
+}
+.el-select__popper.el-popper .el-popper__arrow::before{
+  background:rgba(10,10,14,.97)!important;border-color:var(--border)!important;
+}
+.el-select-dropdown__item{color:var(--mist)!important;font-weight:300!important;font-size:13px!important}
+.el-select-dropdown__item.is-hovering{background:rgba(255,255,255,.05)!important;color:var(--white)!important}
+.el-select-dropdown__item.is-selected{color:var(--signal)!important;font-weight:500!important;background:var(--signal-dim)!important}
+.el-select-dropdown__empty{color:var(--fog)!important;font-weight:300!important}
+.el-select-dropdown__list{padding:6px!important}
+
+/* 通用 popper（日期、提示等）也统一成深色，避免局部漏白 */
+.el-popper.is-light{background:rgba(10,10,14,.97)!important;border:1px solid var(--border)!important;color:var(--mist)!important}
+.el-popper.is-light .el-popper__arrow::before{background:rgba(10,10,14,.97)!important;border-color:var(--border)!important}
 .el-dialog{background:rgba(6,6,8,.95)!important;border:1px solid var(--border)!important;border-radius:16px!important;backdrop-filter:blur(48px);-webkit-backdrop-filter:blur(48px)}
 .el-dialog__header{border-bottom:1px solid var(--border-soft)!important}.el-dialog__title{color:var(--white)!important;font-weight:400!important;letter-spacing:.04em!important}
 .el-dropdown-menu{background:rgba(10,10,14,.95)!important;border:1px solid var(--border)!important;backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border-radius:var(--radius-lg)!important}

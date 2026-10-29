@@ -1,8 +1,7 @@
 <template>
   <div class="main-layout">
-    <!-- Kage Void 3D 背景 -->
-    <iframe src="/sylva/scene.html" class="bg-sylva" loading="eager" scrolling="no" allow="autoplay"></iframe>
-    <div class="bg-sylva-fade"></div>
+    <!-- 全局动态背景：成长知识网络 -->
+    <AppBackground />
 
     <header class="header">
       <div class="header-inner">
@@ -76,8 +75,10 @@
     </header>
 
     <main class="main-content">
+      <!-- 模块切换时的一道信号扫光，把上一页和下一页「连」起来 -->
+      <div class="route-sweep" :key="route.path"></div>
       <router-view v-slot="{ Component }">
-        <transition name="page" mode="out-in"><component :is="Component" /></transition>
+        <transition name="page"><component :is="Component" /></transition>
       </router-view>
     </main>
   </div>
@@ -85,11 +86,13 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { Setting, User, Edit, SwitchButton, Bell, DataAnalysis } from '@element-plus/icons-vue'
 import { getNotificationsApi, getUnreadCountApi, markReadApi, markAllReadApi } from '../api/notification'
+import AppBackground from '../components/AppBackground.vue'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -159,12 +162,14 @@ function handleLogout() {
 </script>
 
 <style scoped>
-.main-layout{display:flex;flex-direction:column;min-height:100vh}
+.main-layout{display:flex;flex-direction:column;min-height:100vh;position:relative}
 
-.bg-sylva{position:fixed;inset:0;width:100vw;height:100vh;border:none;z-index:0;pointer-events:none;mix-blend-mode:screen;opacity:.55}
-.bg-sylva-fade{position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(13,17,16,.25) 0%,rgba(13,17,16,.55) 60%,rgba(13,17,16,.88) 100%)}
+/* 信号扫光：每次切模块从左侧扫过一条绿线 */
+.route-sweep{position:absolute;top:0;left:0;right:0;height:1px;pointer-events:none;overflow:hidden;z-index:2}
+.route-sweep::after{content:'';position:absolute;top:0;left:0;width:38%;height:100%;background:linear-gradient(90deg,transparent,rgba(139,195,74,.75),transparent);animation:sweep 1.1s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes sweep{0%{transform:translateX(-110%);opacity:0}18%{opacity:1}100%{transform:translateX(300%);opacity:0}}
 
-.header{position:sticky;top:0;z-index:100;background:rgba(13,17,16,.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.04)}
+.header{position:sticky;top:0;z-index:100;background:rgba(8,10,9,.55);backdrop-filter:blur(20px) saturate(1.2);-webkit-backdrop-filter:blur(20px) saturate(1.2);border-bottom:1px solid rgba(255,255,255,.04)}
 .header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;padding:0 28px;height:52px;gap:20px}
 .logo{display:flex;align-items:center;gap:8px;cursor:pointer}
 .logo-dot{width:5px;height:5px;border-radius:50%;background:var(--signal);animation:breathe 4s ease-in-out infinite}
@@ -204,6 +209,5 @@ function handleLogout() {
   .nav{order:3;flex:1 0 100%;gap:0;padding-bottom:6px}
   .nav-item{padding:6px 11px;font-size:12px}
   .main-content{padding:14px}
-  .bg-sylva{opacity:.35}
 }
 </style>

@@ -29,6 +29,19 @@
           <el-option label="进阶" value="INTERMEDIATE" />
           <el-option label="高级" value="ADVANCED" />
         </el-select>
+        <div class="major-switch" v-if="hasMajorInfo">
+          <el-switch v-model="onlyMatch" size="default" />
+          <span class="major-switch-label">只看对口我的专业</span>
+        </div>
+      </div>
+
+      <div class="major-tip" v-if="hasMajorInfo">
+        <el-icon><InfoFilled /></el-icon>
+        已按你的专业「<strong>{{ myMajorName }}</strong>」筛选：{{ matchedCount }} 场对口
+        <span class="tip-note">（含面向全校的比赛）</span>
+        <template v-if="relatedCount">
+          · 另有 {{ relatedCount }} 场同方向比赛，关闭筛选可见
+        </template>
       </div>
 
       <div class="comp-grid">
@@ -37,10 +50,19 @@
           <div class="card-body">
             <div class="card-header-row">
               <el-tag :type="diffTag(comp.difficulty)" size="small" effect="dark" round>{{ diffLabel(comp.difficulty) }}</el-tag>
+              <el-tag v-if="comp.matchLevel === 'EXACT'" type="success" size="small" effect="plain" round>对口我的专业</el-tag>
+              <el-tag v-else-if="comp.matchLevel === 'OPEN'" size="small" effect="plain" round>不限专业</el-tag>
+              <el-tag v-else-if="comp.matchLevel === 'RELATED'" type="info" size="small" effect="plain" round>同方向专业</el-tag>
               <span class="card-type">{{ comp.type }}</span>
             </div>
             <h3 class="card-title">{{ comp.name }}</h3>
             <p class="card-desc">{{ comp.description }}</p>
+            <div class="card-majors" v-if="majorList(comp).length">
+              <span class="majors-label">适合专业</span>
+              <span class="major-chip" v-for="m in majorList(comp).slice(0, 3)" :key="m"
+                    :class="{ mine: m === myMajorName }">{{ m }}</span>
+              <span class="major-more" v-if="majorList(comp).length > 3">等 {{ majorList(comp).length }} 个专业</span>
+            </div>
             <div class="card-dates">
               <div class="date-item">
                 <el-icon><Calendar /></el-icon>
@@ -96,6 +118,8 @@
             <div class="rec-tags">
               <el-tag :type="diffTag(rec.difficulty)" size="small">{{ diffLabel(rec.difficulty) }}</el-tag>
               <el-tag type="info" size="small">{{ rec.type }}</el-tag>
+              <el-tag v-if="rec.matchLevel === 'EXACT'" type="success" size="small" effect="plain">对口我的专业</el-tag>
+              <el-tag v-else-if="rec.matchLevel === 'OPEN'" size="small" effect="plain">不限专业</el-tag>
               <el-tag v-if="rec.daysLeft > 0" type="success" size="small">剩余{{ rec.daysLeft }}天</el-tag>
             </div>
 
@@ -124,9 +148,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { TrophyBase, Search, Calendar, Timer, List, MagicStick, Link, Loading } from '@element-plus/icons-vue'
+import { TrophyBase, Search, Calendar, Timer, List, MagicStick, Link, Loading, InfoFilled } from '@element-plus/icons-vue'
 import { getCompetitionsApi } from '../api/competition'
 import { recommendCompetitionsApi } from '../api/recommend'
+import { getProfileApi } from '../api/profile'
 import { ElMessage } from 'element-plus'
 
 const activeTab = ref('all')
@@ -138,7 +163,29 @@ const filterType = ref('')
 const filterDiff = ref('')
 const joinedIds = ref([])
 
+// 专业对口过滤：默认只看对口，避免土木/护理/会计的学生一进来就看到满屏程序设计竞赛
+const onlyMatch = ref(true)
+const myMajorName = ref('')
+
+const hasMajorInfo = computed(() => !!myMajorName.value)
+// 「对口」只算精确对口的和面向全校的；仅同方向的比赛不算，否则统计学会看到地质技能竞赛
+const isMyMatch = (c) => c.matchLevel === 'EXACT' || c.matchLevel === 'OPEN'
+const matchedCount = computed(() => competitions.value.filter(isMyMatch).length)
+const relatedCount = computed(() => competitions.value.filter(c => c.matchLevel === 'RELATED').length)
+
+/** suitable_major 是 JSON 数组，['*'] 表示不限专业，这里不展示成「适合专业」 */
+function majorList(comp) {
+  if (!comp.suitableMajor) return []
+  try {
+    const arr = JSON.parse(comp.suitableMajor)
+    return Array.isArray(arr) ? arr.filter(m => m !== '*') : []
+  } catch (e) {
+    return []
+  }
+}
+
 const filteredComps = computed(() => competitions.value.filter(c => {
+  if (onlyMatch.value && hasMajorInfo.value && !isMyMatch(c)) return false
   if (searchText.value && !c.name.includes(searchText.value)) return false
   if (filterType.value && c.type !== filterType.value) return false
   if (filterDiff.value && c.difficulty !== filterDiff.value) return false
@@ -195,9 +242,24 @@ async function switchToAI() {
 }
 
 onMounted(async () => {
+  await loadMajorContext()
   try { competitions.value = (await getCompetitionsApi()).data }
   catch (e) { ElMessage.error('加载竞赛数据失败') }
 })
+
+/**
+ * 取当前用户的专业名，用于「只看对口我的专业」。
+ * 后端 /competitions 会自动按登录用户的档案专业标注 matchMyMajor，
+ * 这里取专业名只是为了展示与高亮。未初始化档案时静默跳过。
+ */
+async function loadMajorContext() {
+  try {
+    const p = (await getProfileApi()).data
+    if (p && p.majorName) myMajorName.value = p.majorName
+  } catch (e) {
+    // 新用户还没建档，正常浏览全部竞赛
+  }
+}
 </script>
 
 <style scoped>
@@ -219,8 +281,34 @@ onMounted(async () => {
   padding: 1px 7px; font-size: 11px; font-weight: 600;
 }
 
-.filter-bar { display: flex; gap: 12px; margin-bottom: 28px; justify-content: center; }
+.filter-bar { display: flex; gap: 12px; margin-bottom: 14px; justify-content: center; align-items: center; flex-wrap: wrap; }
 .search-input { width: 320px; }
+/* el-select 在 flex 容器里会撑满一行，这里给固定宽度 */
+.filter-bar :deep(.el-select) { width: 150px; }
+@media (max-width: 560px) {
+  .search-input { width: 100%; }
+  .filter-bar :deep(.el-select) { width: calc(50% - 6px); }
+}
+
+/* 专业对口 */
+.major-switch { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+.major-switch-label { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+.major-tip {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 12.5px; color: var(--text-secondary); margin-bottom: 24px;
+}
+.major-tip strong { color: var(--primary); font-weight: 600; }
+.major-tip .tip-note { color: var(--fog); }
+
+.card-majors { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.majors-label { font-size: 11px; color: var(--fog); flex-shrink: 0; }
+.major-chip {
+  font-size: 11px; padding: 2px 8px; border-radius: 6px;
+  background: rgba(255,255,255,.05); color: var(--text-secondary);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.major-chip.mine { color: var(--primary); border-color: var(--primary); background: rgba(79,209,197,.08); }
+.major-more { font-size: 11px; color: var(--fog); }
 
 .comp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 22px; }
 .comp-card { background:var(--glass); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); transition: all var(--transition); }

@@ -1,7 +1,10 @@
 import request from '../utils/request'
 
+// 与后端 ai.read-timeout(120s) 对齐，避免长回答被 axios 的 30s 默认超时掐断
+const AI_TIMEOUT = 120000
+
 export function chatApi(question, type = 'GENERAL') {
-  return request.post('/ai/chat', { question, type })
+  return request.post('/ai/chat', { question, type }, { timeout: AI_TIMEOUT })
 }
 
 export function getHistoryApi(type = 'GENERAL') {

@@ -1,5 +1,6 @@
 <template>
   <div class="init-page">
+    <AppBackground />
     <div class="init-card">
       <div class="init-head">
         <span class="ih-badge">AI</span>
@@ -73,14 +74,14 @@
       <div class="step-acts">
         <el-button v-if="activeStep>0" @click="activeStep--" size="large">上一步</el-button><span v-else></span>
         <el-button v-if="activeStep<3" type="primary" size="large" @click="nextStep">下一步</el-button>
-        <el-button v-if="activeStep===3" type="primary" size="large" @click="handleSubmit" :loading="submitting">{{submitting?'AI正在分析...':(isEdit?'保存修改，重新生成画像':'完成，生成AI画像')}}</el-button>
+        <el-button v-if="activeStep===3" type="primary" size="large" @click="handleSubmit" :loading="submitting">{{submitting?'AI正在生成...':(isEdit?'保存修改，重新生成画像':'完成，生成画像与规划')}}</el-button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref,reactive,computed,watch,onMounted } from 'vue'; import { useRouter,useRoute } from 'vue-router'; import { ElMessage } from 'element-plus'; import { Check,InfoFilled } from '@element-plus/icons-vue'; import { saveProfileApi,generatePortraitApi,getProfileApi } from '../api/profile'; import { getMajorsApi } from '../api/major'; import { universities } from '../data/universities'; import { resolveSkillTemplate,LEVEL_OPTIONS } from '../data/skillTemplates'
+import { ref,reactive,computed,watch,onMounted } from 'vue'; import { useRouter,useRoute } from 'vue-router'; import { ElMessage } from 'element-plus'; import { Check,InfoFilled } from '@element-plus/icons-vue'; import AppBackground from '../components/AppBackground.vue'; import { saveProfileApi,generatePortraitApi,getProfileApi } from '../api/profile'; import { generatePlanApi } from '../api/plan'; import { getMajorsApi } from '../api/major'; import { universities } from '../data/universities'; import { resolveSkillTemplate,LEVEL_OPTIONS } from '../data/skillTemplates'
 const router=useRouter(); const route=useRoute(); const activeStep=ref(0); const submitting=ref(false); const isEdit=ref(false); const schoolLoading=ref(false); const schoolOptions=ref(universities.slice(0,80))
 const majorOptions=ref([]); const majorLoading=ref(false)
 const steps=[{title:'基础信息',desc:'学校与专业'},{title:'学习情况',desc:'能力评估'},{title:'兴趣方向',desc:'个性化推荐'},{title:'未来目标',desc:'路线规划'}]
@@ -174,7 +175,14 @@ async function handleSubmit(){
     }
     await saveProfileApi(payload)
     await generatePortraitApi()
-    ElMessage.success(isEdit.value?'档案已更新，AI重新生成了画像':'AI画像生成完成')
+    // 画像生成后顺带把四年规划也建好：否则回到首页流程条会停在「AI规划」那一步，
+    // 后面的学习执行 / 分析环节全是灰的，容易被误解为「还没有这些功能」。
+    // 规划生成失败不影响档案与画像的保存结果，仅回首页时会提示补生成。
+    let planReady=true
+    try{ await generatePlanApi() }catch(e){ planReady=false }
+    ElMessage.success(planReady
+      ? (isEdit.value?'档案已更新，AI已重新生成画像与四年规划':'AI画像与四年规划已生成')
+      : '画像已生成，四年规划稍后可在「AI成长规划」页生成')
     setTimeout(()=>router.push('/home'),500)
   }catch(e){ElMessage.error('保存失败，请重试')}finally{submitting.value=false}
 }
@@ -182,7 +190,7 @@ async function handleSubmit(){
 
 <style scoped>
 .init-page{min-height:calc(100vh - 120px);display:flex;align-items:flex-start;justify-content:center;padding:40px 20px}
-.init-card{width:700px;background:var(--glass);border-radius:var(--radius-xl);padding:38px 44px;border:1px solid var(--border);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px)}
+.init-card{width:700px;max-width:100%;background:var(--glass);border-radius:var(--radius-xl);padding:38px 44px;border:1px solid var(--border);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);position:relative;z-index:1}
 .init-head{text-align:center;margin-bottom:28px}
 .ih-badge{display:inline-flex;width:48px;height:48px;border-radius:13px;background:#8BC34A;color:#fff;font-size:19px;font-weight:800;align-items:center;justify-content:center;margin-bottom:12px}
 .init-head h2{font-size:21px;font-weight:300;color:#fff;margin-bottom:4px;letter-spacing:.02em}

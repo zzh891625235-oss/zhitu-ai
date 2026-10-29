@@ -1,7 +1,6 @@
 <template>
   <div class="void" @mousemove="onMouseMove">
-    <iframe src="/sylva/scene.html" class="bg-sylva" loading="eager" scrolling="no" allow="autoplay"></iframe>
-    <div class="bg-sylva-fade"></div>
+    <AppBackground />
     <div class="ambient-light" :style="{background: `radial-gradient(ellipse 100% 100% at ${mx}% ${my}%, rgba(139,195,74,.04) 0%, transparent 55%)`}"></div>
 
     <header class="nav">
@@ -48,7 +47,7 @@
 </template>
 
 <script setup>
-import { ref,reactive } from 'vue'; import { useRouter } from 'vue-router'; import { useUserStore } from '../stores/user'; import { ElMessage } from 'element-plus'; import { onMounted } from 'vue'
+import { ref,reactive } from 'vue'; import { useRouter } from 'vue-router'; import { useUserStore } from '../stores/user'; import { ElMessage } from 'element-plus'; import { onMounted } from 'vue'; import AppBackground from '../components/AppBackground.vue'
 const router=useRouter(); const userStore=useUserStore(); const showLogin=ref(false); const loading=ref(false); const loginForm=ref(null); const mx=ref(50); const my=ref(40)
 const loginData=reactive({phone:'',password:''}); const loginRules={phone:[{required:true,message:'请输入手机号',trigger:'blur'}],password:[{required:true,message:'请输入密码',trigger:'blur'}]}
 const features=[{title:'AI学生画像',desc:'根据专业、技能和目标，自动生成多维度能力画像和评分。'},{title:'四年成长规划',desc:'大一到大四，每年明确的学习目标、课程、技能路线和竞赛建议。'},{title:'动态调整',desc:'学习进度实时反馈AI，计划随着你的成长不断优化。'},{title:'竞赛智能推荐',desc:'AI匹配能力画像推荐最适合的比赛，生成备赛计划。'},{title:'成长档案',desc:'学习记录、项目经历、获奖证书——完整的大学成长档案。'},{title:'AI简历生成',desc:'根据成长档案自动生成专业简历，支持导出和在线编辑。'}]
@@ -58,9 +57,7 @@ onMounted(()=>{if(userStore.token)userStore.fetchUserInfo()})
 </script>
 
 <style scoped>
-.void{position:relative;background:#0D1110;color:#fff;font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
-.bg-sylva{position:fixed;inset:0;width:100vw;height:100vh;border:none;z-index:0;pointer-events:none;opacity:.7}
-.bg-sylva-fade{position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(13,17,16,.15) 0%,rgba(13,17,16,.45) 60%,rgba(13,17,16,.85) 100%)}
+.void{position:relative;background:#030303;color:#fff;font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
 .ambient-light{position:fixed;inset:0;z-index:1;pointer-events:none;transition:background 1s ease-out}
 .nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:18px 0;background:linear-gradient(rgba(13,17,16,.88) 0%,transparent 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
 .nav-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;padding:0 40px}

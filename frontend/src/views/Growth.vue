@@ -15,6 +15,9 @@
       </div>
     </div>
 
+    <!-- 图片拍照录入：只在成长档案页出现 -->
+    <ImageRecordImport v-if="tab === 'archive'" @saved="reloadArchive" />
+
     <!-- 学习计划视图 -->
     <template v-if="tab === 'plan'">
       <div class="checkin-section">
@@ -123,6 +126,7 @@ import { ref, onMounted } from 'vue'
 import { DataAnalysis, Edit, Calendar, FolderOpened, Plus, Check } from '@element-plus/icons-vue'
 import { getStudyPlanApi, generateStudyPlanApi, recordStudyApi } from '../api/studyplan'
 import { getArchiveApi, addGrowthRecordApi } from '../api/growth'
+import ImageRecordImport from '../components/ImageRecordImport.vue'
 import { getProfileApi } from '../api/profile'
 import { getCoursesApi } from '../api/course'
 import { ElMessage } from 'element-plus'
@@ -181,6 +185,11 @@ async function switchToArchive() {
   if (!archive.value) {
     try { archive.value = (await getArchiveApi()).data } catch (e) {}
   }
+}
+
+/** 图片识别入库后刷新档案统计 */
+async function reloadArchive() {
+  try { archive.value = (await getArchiveApi()).data } catch (e) {}
 }
 
 async function handleGenerate() {

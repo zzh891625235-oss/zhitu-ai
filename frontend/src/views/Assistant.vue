@@ -3,6 +3,13 @@
     <div class="page-hero">
       <h1><el-icon><ChatDotRound /></el-icon> AI成长助手</h1>
       <p>学习答疑 · 职业规划 · 竞赛咨询 · 模拟面试</p>
+      <div class="agent-intro">
+        <span class="ai-chip">Function Calling</span>
+        <span class="ai-chip">RAG 检索</span>
+        <span class="ai-chip">结果可溯源</span>
+        每轮回答都会<b>真实调用工具</b>去查你的档案、课程进度、竞赛与打卡记录，
+        并把依据逐条列出来，供你核对。
+      </div>
       <div class="ai-mode" :class="aiStatus.configured ? 'online' : 'offline'">
         <span class="mode-dot"></span>
         <span v-if="aiStatus.configured">已接入真实大模型 · {{ aiStatus.model }}</span>
@@ -52,10 +59,17 @@
               <span v-else>AI</span>
             </div>
             <div class="msg-bubble" :class="msg.role">
+              <div v-if="msg.role === 'ai' && msg.thinking && msg.phase" class="msg-phase">
+                <span class="phase-spin"></span>{{ msg.phase }}
+              </div>
               <div class="msg-text md-body" v-html="renderMarkdown(msg.content)"></div>
               <span v-if="msg.role === 'ai' && loading && idx === messages.length - 1" class="caret"></span>
+              <AgentTrace v-if="msg.trace" :mode="msg.trace.mode" :steps="msg.trace.steps"
+                :citations="msg.trace.citations" :verify="msg.trace.verify" />
               <div class="msg-time">
                 <span v-if="msg.role === 'ai' && msg.real === false" class="offline-tag">离线模板</span>
+                <el-button v-if="msg.role === 'ai' && msg.content && ttsSupported" text size="small"
+                  class="tts-btn" @click="speakMsg(msg)">{{ speakingId === msg.id ? '停止' : '朗读' }}</el-button>
                 <span v-if="msg.time">{{ msg.time }}</span>
               </div>
             </div>
@@ -76,6 +90,7 @@
             type="textarea" :rows="1" resize="none" :autosize="{ minRows: 1, maxRows: 4 }"
             @keydown.enter.exact.prevent="sendMessage()" :disabled="loading">
           </el-input>
+          <VoiceBar class="input-voice" :text="lastAnswer" @text="t => (inputText = t)" />
           <el-button type="primary" class="send-btn" @click="sendMessage()" :loading="loading" :icon="Promotion" />
         </div>
       </div>
@@ -86,7 +101,11 @@
 <script setup>
 import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { ChatDotRound, Promotion, Delete } from '@element-plus/icons-vue'
-import { getHistoryApi, clearHistoryApi, getAiStatusApi, streamChatApi } from '../api/ai'
+import { getHistoryApi, clearHistoryApi, getAiStatusApi } from '../api/ai'
+import { agentStreamApi } from '../api/agent'
+import AgentTrace from '../components/AgentTrace.vue'
+import VoiceBar from '../components/VoiceBar.vue'
+import { speak, stopSpeak, ttsSupported } from '../utils/speech'
 import { getProfileApi } from '../api/profile'
 import { buildQuickQuestions, resolveDirectionData } from '../data/majorDirection'
 import { renderMarkdown } from '../utils/markdown'
@@ -98,6 +117,16 @@ const inputText = ref('')
 const loading = ref(false)
 const msgContainer = ref(null)
 const aiStatus = reactive({ configured: false, model: '', keySource: 'NONE' })
+const speakingId = ref(null)
+
+/** 最近一条 AI 回答，供输入区的朗读按钮使用 */
+const lastAnswer = computed(() => {
+  for (let i = messages.value.length - 1; i >= 0; i--) {
+    const m = messages.value[i]
+    if (m.role === 'ai' && m.content) return m.content
+  }
+  return ''
+})
 
 // 学生专业方向：默认通用方向，快捷提问随之切换，避免出现与专业无关的技术问题
 const direction = ref(resolveDirectionData(''))
@@ -160,28 +189,47 @@ async function sendMessage(quick) {
   const text = (quick || inputText.value).trim()
   if (!text || loading.value) return
 
-  messages.value.push({ role: 'user', content: text, time: timeNow() })
+  messages.value.push({ role: 'user', content: text, time: timeNow(), id: uid() })
   inputText.value = ''
   loading.value = true
   scrollBottom()
 
-  // 用 reactive 包装，保证流式追加内容时能触发视图更新
-  const aiMsg = reactive({ role: 'ai', content: '', time: timeNow(), real: null })
+  // trace 独立成 reactive：工具调用、引用、校验事件各自到达，需要分别驱动视图更新
+  const aiMsg = reactive({
+    role: 'ai', content: '', time: timeNow(), real: null, thinking: true, phase: '', id: uid(),
+    trace: reactive({ mode: '', steps: [], citations: [], verify: null })
+  })
   messages.value.push(aiMsg)
 
   try {
-    await streamChatApi(text, currentMode.value, {
-      onDelta: delta => {
-        aiMsg.content += delta
+    await agentStreamApi(text, currentMode.value, {
+      onStatus: t => { aiMsg.phase = t; scrollBottom() },
+      onCitations: items => { aiMsg.trace.citations = items; scrollBottom() },
+      onMode: mode => { aiMsg.trace.mode = mode },
+      onToolCall: node => {
+        aiMsg.trace.steps.push({ name: node.name, purpose: node.purpose, preview: '', ok: true, dataDomain: node.purpose })
         scrollBottom()
       },
+      onToolResult: node => {
+        // 同名工具可能被多次调用，回填到最近一条还没结果的记录上
+        for (let i = aiMsg.trace.steps.length - 1; i >= 0; i--) {
+          const step = aiMsg.trace.steps[i]
+          if (step.name === node.name && !step.preview) {
+            step.preview = node.preview
+            step.ok = node.ok
+            break
+          }
+        }
+        scrollBottom()
+      },
+      onDelta: delta => { aiMsg.content += delta; scrollBottom() },
+      onVerify: v => { aiMsg.trace.verify = v },
       onDone: meta => {
         aiMsg.real = meta.real
         if (meta.real) aiStatus.configured = true
       },
-      onError: msg => {
-        if (!aiMsg.content) aiMsg.content = msg
-      }
+      onBlocked: reason => { aiMsg.content = reason; aiMsg.blocked = true },
+      onError: msg => { if (!aiMsg.content) aiMsg.content = msg }
     })
   } catch (e) {
     if (!aiMsg.content) {
@@ -189,8 +237,25 @@ async function sendMessage(quick) {
     }
   } finally {
     loading.value = false
+    aiMsg.thinking = false
+    aiMsg.phase = ''
     scrollBottom()
   }
+}
+
+/** 消息自增编号：用于标记当前正在朗读的是哪一条 */
+let seq = 0
+function uid() { return ++seq }
+
+/** 朗读某条回答；再点一次停止 */
+function speakMsg(msg) {
+  if (speakingId.value === msg.id) {
+    stopSpeak()
+    speakingId.value = null
+    return
+  }
+  const started = speak(msg.content, { onEnd: () => { speakingId.value = null } })
+  speakingId.value = started ? msg.id : null
 }
 
 async function handleClear() {
@@ -230,6 +295,16 @@ onMounted(async () => {
 .page-hero { text-align: center; padding: 28px 0 20px; }
 .page-hero h1 { font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .page-hero p { color: var(--text-secondary); margin-top: 6px; font-size: 14px; }
+
+.agent-intro {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px;
+  margin: 10px auto 0; max-width: 720px; font-size: 12px; color: var(--text-muted); line-height: 1.6;
+}
+.agent-intro b { color: var(--primary); font-weight: 600; }
+.ai-chip {
+  font-size: 10.5px; padding: 2px 8px; border-radius: 20px;
+  background: rgba(139,195,74,.10); color: var(--primary); border: 1px solid rgba(139,195,74,.22);
+}
 
 .ai-mode {
   display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
@@ -325,6 +400,12 @@ onMounted(async () => {
   border-left: 2px solid var(--signal); padding-left: 10px; margin: 8px 0;
   color: var(--fog); font-size: 13px;
 }
+
+.msg-phase { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--primary); margin-bottom: 6px; }
+.phase-spin { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid rgba(139,195,74,.3); border-top-color: var(--primary); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.tts-btn { height: 20px; padding: 0 6px; font-size: 10.5px; }
+.input-voice { padding-bottom: 4px; }
 
 /* 移动端：模式面板横向滚动，聊天区占满高度 */
 @media (max-width: 820px) {

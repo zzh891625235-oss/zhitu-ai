@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
   // Landing — 纯介绍页
-  { path: '/', name: 'Landing', component: () => import('../views/Landing.vue'), meta: { title: '智途AI' } },
+  { path: '/', name: 'Landing', component: () => import('../views/Landing.vue'), meta: { title: '首页' } },
 
   // 仪表盘 + 所有功能页（需要 MainLayout）
   {
@@ -25,15 +25,21 @@ const routes = [
   { path: '/login', name: 'Login', component: () => import('../views/Login.vue'), meta: { title: '登录' } },
   { path: '/register', name: 'Register', component: () => import('../views/Register.vue'), meta: { title: '注册' } },
   { path: '/init', name: 'InitProfile', component: () => import('../views/InitProfile.vue'), meta: { title: 'AI成长档案初始化' } },
-  { path: '/sylva', name: 'SylvaView', component: () => import('../views/SylvaView.vue'), meta: { title: 'Sylva' } },
 
   // 未知路径回首页，避免出现空白页
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
-const router = createRouter({ history: createWebHistory(), routes })
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+  // 切换模块后回到顶部，否则从长页面跳到短页面会停在半空
+  scrollBehavior(to, from, savedPosition) {
+    return savedPosition || { top: 0 }
+  }
+})
 
-const publicPaths = ['/', '/login', '/register', '/sylva']
+const publicPaths = ['/', '/login', '/register']
 
 router.beforeEach((to, from, next) => {
   document.title = to.meta.title ? `${to.meta.title} - 智途AI` : '智途AI'
