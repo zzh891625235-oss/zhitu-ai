@@ -36,3 +36,15 @@ application-local.yml
 .tmp/
 .vite-tmp/
 logs/
+
+# === 本地运行产生的数据（不要提交）===
+backend/data/
+/data/
+*.mv.db
+*.trace.db
+
+# === 构建临时目录 ===
+.tmp-build/
+
+# === 文档中间产物（PDF 由 Markdown 生成）===
+docs/report.html

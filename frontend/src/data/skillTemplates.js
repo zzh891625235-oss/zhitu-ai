@@ -148,9 +148,24 @@ const TEMPLATES = [
     interests: ['科研深造', '工程技术', '实验研究', '数据分析', '产品研发', '学术写作', '项目管理']
   },
   {
+    id: 'foreign',
+    name: '外语类',
+    match: /英语|日语|德语|法语|俄语|西班牙语|葡萄牙语|阿拉伯语|朝鲜语|越南语|泰语|蒙古语|印度尼西亚语|翻译|商务英语|外国语言文学/,
+    skills: [
+      { key: 'listeningLevel', label: '听力理解', emoji: '🎧' },
+      { key: 'speakingLevel', label: '口语表达', emoji: '🗣' },
+      { key: 'vocabLevel', label: '词汇量与阅读', emoji: '📚' },
+      { key: 'translationLevel', label: '翻译实践', emoji: '🔀' },
+      { key: 'writingLevel', label: '外语写作', emoji: '✍️' },
+      { key: 'secondLangLevel', label: '第二外语', emoji: '🌐' },
+      { key: 'cultureLevel', label: '跨文化沟通', emoji: '🌍' }
+    ],
+    interests: ['口笔译', '跨境电商', '国际贸易', '国际传播', '语言教学', '同声传译', '本地化与语言服务', '出国留学']
+  },
+  {
     id: 'humanities',
     name: '人文社科类',
-    match: /汉语言|汉语国际|英语|俄语|日语|德语|法语|西班牙语|朝鲜语|翻译|新闻|广播电视学|广告|传播|编辑出版|网络与新媒体|历史|考古|文物|世界史|哲学|逻辑学|宗教学|伦理学/,
+    match: /汉语言|汉语国际|新闻|广播电视学|广告|传播|编辑出版|网络与新媒体|历史|考古|文物|世界史|哲学|逻辑学|宗教学|伦理学/,
     skills: [
       { key: 'writingLevel', label: '写作能力', emoji: '✍️' },
       { key: 'readingLevel', label: '文献阅读与检索', emoji: '📄' },

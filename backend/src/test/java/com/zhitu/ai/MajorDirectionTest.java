@@ -57,7 +57,11 @@ class MajorDirectionTest {
 
     @Test
     void chineseLanguageGoesToHumanities() {
-        assertThat(MajorDirection.resolve("汉语言文学").label()).isEqualTo("人文社科 / 外语类");
+        assertThat(MajorDirection.resolve("汉语言文学").label()).isEqualTo("人文社科");
+        // 外语专业独立成方向：英语拿到的是外语类内容，而不是汉语言文学的课程
+        assertThat(MajorDirection.resolve("英语").label()).isEqualTo("外语类");
+        assertThat(MajorDirection.resolve("商务英语").label()).isEqualTo("外语类");
+        assertThat(MajorDirection.resolve("日语").label()).isEqualTo("外语类");
     }
 
     @Test
