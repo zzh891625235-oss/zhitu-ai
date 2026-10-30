@@ -1,19 +1,19 @@
 
-@page { size: A4; margin: 16mm 15mm; }
+@page { size: A4; margin: 15mm 14mm; }
 body {
   font-family: "Microsoft YaHei", "PingFang SC", "SimSun", sans-serif;
-  font-size: 9.8pt; line-height: 1.62; color: #1a1a1a;
+  font-size: 9.6pt; line-height: 1.58; color: #1a1a1a;
 }
 h1 { font-size: 17pt; margin: 0 0 9pt; padding-bottom: 5pt;
      border-bottom: 2px solid #8BC34A; color: #14261a; page-break-before: always; }
 h1:first-child { page-break-before: avoid; }
-h2 { font-size: 12.5pt; margin: 13pt 0 5pt; color: #22391f; }
+h2 { font-size: 12pt; margin: 11pt 0 4pt; color: #22391f; }
 h3 { font-size: 10.5pt; margin: 9pt 0 3pt; color: #2f4b2b; }
 p { margin: 4pt 0; text-align: justify; }
 ul, ol { margin: 4pt 0 4pt 14pt; }
 li { margin: 2pt 0; }
-table { border-collapse: collapse; width: 100%; margin: 6pt 0; font-size: 8.8pt; }
-th, td { border: 1px solid #c8d3c2; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+table { border-collapse: collapse; width: 100%; margin: 5pt 0; font-size: 8.6pt; }
+th, td { border: 1px solid #c8d3c2; padding: 2.5pt 4pt; text-align: left; vertical-align: top; }
 th { background: #eef5e9; font-weight: 600; }
 tr:nth-child(even) td { background: #fafcf8; }
 code { background: #f2f5ef; padding: 1pt 3pt; border-radius: 3px;
