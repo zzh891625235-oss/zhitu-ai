@@ -43,13 +43,19 @@ public class ProfileController {
         return Result.success("档案保存成功", toProfileMap(saved));
     }
 
-    /** 获取档案 */
+    /**
+     * 获取档案。
+     *
+     * 未初始化档案属于正常状态（新注册用户第一次进首页就会调用），
+     * 返回 200 + data=null，避免前端弹出红色错误提示，
+     * 由前端展示「开始 AI 档案初始化」的引导。
+     */
     @GetMapping("/profile")
     public Result<Map<String, Object>> getProfile(Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         StudentProfile profile = profileService.getByUserId(userId);
         if (profile == null) {
-            return Result.error(404, "请先完成档案初始化");
+            return Result.success("尚未完成档案初始化", null);
         }
         return Result.success(toProfileMap(profile));
     }
@@ -62,13 +68,13 @@ public class ProfileController {
         return Result.success("AI画像生成成功", portrait);
     }
 
-    /** 获取已生成的 AI 画像 */
+    /** 获取已生成的 AI 画像（未生成时返回 200 + null，不是错误） */
     @GetMapping("/ai/portrait")
     public Result<Map<String, Object>> getPortrait(Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         StudentProfile profile = profileService.getByUserId(userId);
         if (profile == null || profile.getAiPortrait() == null) {
-            return Result.error(404, "AI画像尚未生成，请先完成档案初始化");
+            return Result.success("尚未生成AI画像", null);
         }
         try {
             Map<String, Object> portrait = objectMapper.readValue(profile.getAiPortrait(),

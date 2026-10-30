@@ -23,11 +23,12 @@ public class ResumeController {
         return Result.success("简历生成成功", resumeService.generateResume(userId));
     }
 
+    /** 获取简历（未生成时返回 200 + null，避免前端弹红色错误提示） */
     @GetMapping("/resume")
     public Result<Map<String, Object>> getResume(Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         Map<String, Object> resume = resumeService.getResume(userId);
-        if (resume == null) return Result.error(404, "尚未生成简历");
+        if (resume == null) return Result.success("尚未生成简历", null);
         return Result.success(resume);
     }
 }

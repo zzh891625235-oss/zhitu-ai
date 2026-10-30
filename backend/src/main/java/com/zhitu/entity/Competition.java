@@ -24,4 +24,16 @@ public class Competition {
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /**
+     * 以下字段不落库，只在查询时按当前用户专业填充：
+     * 竞赛中心要用它们给卡片打「对口我的专业」标记并支持按专业过滤。
+     */
+    @TableField(exist = false)
+    private Boolean matchMyMajor;
+    @TableField(exist = false)
+    private Boolean openToAll;
+    /** EXACT / RELATED / OPEN，见 CompetitionMajorMatcher.MatchLevel */
+    @TableField(exist = false)
+    private String matchLevel;
 }
