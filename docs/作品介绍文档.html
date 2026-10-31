@@ -28,145 +28,146 @@
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
   </style>
-  <link rel="stylesheet" href="report.css" />
+  <link rel="stylesheet" href="report-intro.css" />
 </head>
 <body>
 <header id="title-block-header">
 <h1 class="title">智途AI · 作品介绍文档</h1>
 <p class="subtitle">2026 第九届传智杯全国大学生数智创新与 AI 应用大赛 ·
 AI WEB 网页开发挑战赛（团队赛）</p>
-<p class="date">2026 年 10 月</p>
 </header>
-<nav id="TOC" role="doc-toc">
-<ul>
-<li><a href="#一项目详情及使用方式"
-id="toc-一项目详情及使用方式">一、项目详情及使用方式</a>
-<ul>
-<li><a href="#项目详情" id="toc-项目详情">1.1 项目详情</a></li>
-<li><a href="#使用方式" id="toc-使用方式">1.2 使用方式</a></li>
-<li><a href="#典型使用路径" id="toc-典型使用路径">1.3
-典型使用路径</a></li>
-</ul></li>
-<li><a href="#二项目亮点" id="toc-二项目亮点">二、项目亮点</a>
-<ul>
-<li><a href="#不是-api-调用是真正的-agent"
-id="toc-不是-api-调用是真正的-agent">2.1 不是 API 调用，是真正的
-Agent</a></li>
-<li><a href="#工具轨迹全程可视化" id="toc-工具轨迹全程可视化">2.2
-工具轨迹全程可视化</a></li>
-<li><a href="#专业对口深度" id="toc-专业对口深度">2.3
-专业对口深度</a></li>
-<li><a href="#负责任的-ai" id="toc-负责任的-ai">2.4 负责任的 AI</a></li>
-<li><a href="#体验完整性" id="toc-体验完整性">2.5 体验完整性</a></li>
-</ul></li>
-<li><a href="#三ai-技术落地使用情况概述"
-id="toc-三ai-技术落地使用情况概述">三、AI 技术落地使用情况概述</a></li>
-<li><a href="#四项目关键技术"
-id="toc-四项目关键技术">四、项目关键技术</a>
-<ul>
-<li><a href="#技术栈" id="toc-技术栈">4.1 技术栈</a></li>
-<li><a href="#关键设计" id="toc-关键设计">4.2 关键设计</a></li>
-</ul></li>
-<li><a href="#五项目相关图片"
-id="toc-五项目相关图片">五、项目相关图片</a></li>
-<li><a href="#六项目发表或获奖情况"
-id="toc-六项目发表或获奖情况">六、项目发表或获奖情况</a></li>
-<li><a href="#七项目优化与原创说明"
-id="toc-七项目优化与原创说明">七、项目优化与原创说明</a></li>
-</ul>
-</nav>
+<div class="title-block">
+<h1>
+智途AI · 作品介绍文档
+</h1>
+<div class="sub">
+面向大学生的一站式 AI 成长规划平台：档案 → 画像 → 四年规划 →
+动态学习计划 → 竞赛推荐 → 简历生成
+</div>
+<div class="meta">
+175 个专业 · 19 个专业方向 · 101 场真实竞赛 · 4200+ 知识库片段 · 后端 57
+个单元测试全部通过
+</div>
+</div>
 <h1 id="一项目详情及使用方式">一、项目详情及使用方式</h1>
-<h2 id="项目详情">1.1 项目详情</h2>
+<h2 id="项目背景与定位">1.1 项目背景与定位</h2>
+<p>大学生在成长规划上普遍面临三个真实困境：<strong>不知道自己现在处于什么水平</strong>、<strong>不知道每个阶段该做什么</strong>、<strong>计划定了坚持不下来</strong>。市面上的工具要么只做静态的课程表，要么是”套壳
+AI 聊天”——回答由大模型凭空生成，无法追溯依据，也不敢用于真实决策。</p>
 <p><strong>智途AI</strong> 是一个 AI Native 的大学生成长规划 Web
-平台。它针对大学生在成长规划上的三个真实困境——不知道自己在什么水平、不知道每个阶段该干什么、计划定了坚持不下来——把档案初始化、学生画像、四年规划、动态学习计划、竞赛推荐、简历生成串成一条闭环，并内置一个会自己调用工具查询真实数据、且把推理依据完整摆出来的成长
-Agent。</p>
-<p>与市面上「套壳 AI 聊天」作品的本质区别在于：本平台的 AI
-回答<strong>不是大模型凭空生成的</strong>，而是由 Agent
-运行时驱动大模型调用 8
-个只读工具（档案、画像、课程、竞赛、学习计划、成长记录、知识库、规划），每一步工具调用都返回数据库里的真实数据；回答结束后，前端展开「执行依据」卡片，展示调用了哪些工具、参考了哪些知识库片段、事实校验结果。模型说的每一个数字都能找到出处。</p>
-<p><strong>核心数据</strong>：覆盖 175 个专业、19 个专业方向；101
-场真实竞赛内置种子数据；本地 RAG 知识库 4200+ 片段；后端 57
-个单元测试全部通过；26 个专业两轮批量回归验证。</p>
-<h2 id="使用方式">1.2 使用方式</h2>
-<h3 id="演示账号">演示账号</h3>
+平台，把档案初始化、学生画像、四年规划、动态学习计划、竞赛推荐、成长记录、简历生成串成一条完整闭环，并内置一个<strong>会自己调用工具查询真实数据、且把推理依据完整摆出来的成长
+Agent</strong>。</p>
+<p>与”套壳聊天”类作品的本质区别：本平台的 AI
+回答<strong>不是生成出来的，而是查出来的</strong>。Agent
+运行时驱动大模型通过 Function Calling 自主调用 8
+个只读工具（档案、画像、课程、竞赛、学习计划、成长记录、知识库、规划），每一步都返回数据库中的真实数据；回答结束后前端展开「查看依据」卡片，展示调用了哪些工具、传了什么参数、引用了知识库哪些片段、事实校验是否通过。模型说的每一个数字都能找到出处。</p>
+<h2 id="功能闭环">1.2 功能闭环</h2>
 <table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
 <thead>
 <tr>
-<th>角色</th>
-<th>手机号</th>
-<th>密码</th>
+<th>环节</th>
+<th>能力</th>
+<th>AI 参与方式</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>学生（数据完整，推荐演示）</td>
-<td>13800000000</td>
-<td>123456</td>
+<td>档案初始化</td>
+<td>专业/年级/GPA/目标 + 九维能力自评</td>
+<td>自评项按专业方向动态生成（英语专业看到听力/口语/翻译，法学专业看到法条/案例/模拟法庭）</td>
 </tr>
 <tr>
-<td>管理员</td>
-<td>13900000000</td>
-<td>123456</td>
+<td>学生画像</td>
+<td>能力雷达图、优势与短板诊断</td>
+<td>LLM 基于真实档案数据生成，禁止编造未提供的信息</td>
+</tr>
+<tr>
+<td>四年规划</td>
+<td>分学年目标、课程、证书、实习建议</td>
+<td>按 19 个专业方向分别内置规划模板</td>
+</tr>
+<tr>
+<td>学习计划</td>
+<td>周计划 + 打卡 + AI 重排</td>
+<td>打卡后调用 AI 重新评估进度并调整下周计划</td>
+</tr>
+<tr>
+<td>竞赛中心</td>
+<td>101 场真实赛事 + 三级对口推荐</td>
+<td>三级匹配器（精确对口/不限专业/同大类）+ 五档离线评分</td>
+</tr>
+<tr>
+<td>成长档案</td>
+<td>学习打卡、证书拍照录入、语音录入</td>
+<td>视觉抽取字段（人工核对后入库）、浏览器本地语音识别</td>
+</tr>
+<tr>
+<td>简历生成</td>
+<td>一键汇总生成可打印简历</td>
+<td>汇总真实档案与成长记录，不静默写入未经确认的数据</td>
 </tr>
 </tbody>
 </table>
-<h3 id="三种运行方式">三种运行方式</h3>
+<h2 id="使用方式">1.3 使用方式</h2>
+<p><strong>演示账号</strong>（数据完整，推荐评委直接体验）</p>
+<div class="kv">
+<b>学生账号</b>　手机号 13800000000　密码
+123456　　<b>管理员账号</b>　手机号 13900000000　密码 123456
+</div>
+<p><strong>三种运行方式</strong></p>
 <ol type="1">
 <li><strong>便携版（推荐评委使用）</strong>：解压作品包中的
 <code>智途AI-便携版</code> 目录，双击
 <code>启动智途AI.bat</code>，浏览器访问
 <code>http://localhost:8080</code>。内嵌 H2 数据库，免安装
-MySQL、免配置。</li>
+MySQL、免配置环境。</li>
 <li><strong>源码运行</strong>：后端
-<code>mvn spring-boot:run</code>，前端 <code>npm run dev</code>，按
-README 配置即可。</li>
+<code>mvn spring-boot:run</code>，前端
+<code>npm run dev</code>，按根目录 README 配置即可。</li>
 <li><strong>Docker
 Compose</strong>：<code>docker compose up -d --build</code> 一条命令拉起
 MySQL + 后端 + 前端。</li>
 </ol>
-<h3 id="ai-能力说明">AI 能力说明</h3>
-<p>平台支持双引擎诚实降级：</p>
+<p><strong>AI 能力双引擎诚实降级</strong></p>
 <ul>
 <li><strong>配置 API Key</strong>：在「API 设置」页填入任意 OpenAI
-兼容协议的 Key（DeepSeek / 通义 / 豆包等），Agent
-由大模型自主决策调用哪些工具，回答为流式输出。</li>
+兼容协议的 Key（DeepSeek / 通义 / 豆包等均可），Agent
+由大模型自主决策调用哪些工具，回答为流式输出，可展开完整执行依据。</li>
 <li><strong>未配置
-Key</strong>：自动切换本地规则编排引擎，工具照样真实执行、数据照样来自数据库，页面明确标注当前不是大模型输出。评委在没有
-Key 的环境下也能完整体验全部功能。</li>
+Key</strong>：自动切换本地规则编排引擎，工具照样真实执行、数据照样来自数据库，页面明确标注当前非大模型输出。评委在没有
+Key 的环境下也能完整体验全部功能，不存在功能阉割。</li>
 </ul>
-<h2 id="典型使用路径">1.3 典型使用路径</h2>
-<p>登录 → 档案初始化（专业/年级/GPA/目标 + 九维能力自评）→
-一键生成学生画像与四年规划 → 每周动态学习计划（打卡后 AI 重排）→
-竞赛中心查看对口赛事 → AI
-成长助手提问（展开「执行依据」看工具轨迹与引用来源）→ 拍照录入证书（AI
-抽取字段、人工核对后入库）→ 一键生成简历。</p>
+<p><strong>典型使用路径</strong>：登录 → 档案初始化 →
+一键生成画像与四年规划 → 每周动态学习计划（打卡后 AI 重排）→
+竞赛中心查看对口赛事 → AI 成长助手提问并展开「查看依据」→ 拍照录入证书 →
+一键生成简历。</p>
 <h1 id="二项目亮点">二、项目亮点</h1>
-<h2 id="不是-api-调用是真正的-agent">2.1 不是 API 调用，是真正的
-Agent</h2>
-<p>平台实现了完整的五阶段 Agent 流水线：安全护栏 → RAG 检索 →
-工具循环（≤4 轮）→ 流式合成 → 事实校验。大模型通过 Function Calling
-协议自主决定调用哪些工具，工具返回的数据注入下一轮上下文。回答不是「生成出来的」，而是「查出来的」。</p>
-<h2 id="工具轨迹全程可视化">2.2 工具轨迹全程可视化</h2>
-<p>前端将 Agent
-的思考过程渲染为「执行依据」卡片：每一步调用了哪个工具、传入什么参数、返回什么真实数据、引用了知识库哪些片段、事实校验是否通过。<strong>这是本平台与「套壳聊天」作品最直观的区别。</strong></p>
-<h2 id="专业对口深度">2.3 专业对口深度</h2>
-<ul>
-<li>175 个专业映射到 19
-个专业方向，档案自评选项、课程库、竞赛推荐、规划内容全部按方向动态生成——英语专业看到听力/口语/翻译，法学专业看到法条/案例/模拟法庭，不会出现给文科生推编程能力自评的错配。</li>
-<li>竞赛推荐采用三级匹配器（EXACT 精确对口 / OPEN 不限专业 / RELATED
-同大类），先按对口程度分档、再按综合评分排序，避免不限专业的比赛挤掉真正为本专业办的比赛。</li>
-</ul>
-<h2 id="负责任的-ai">2.4 负责任的 AI</h2>
-<ul>
-<li>注入攻击拦截、敏感信息脱敏、防幻觉校验（答案中的数字必须在工具返回数据中出现）。</li>
-<li>图像识别结果强制人工核对后才入库，简历数据不允许静默写入。</li>
-<li>语音识别使用浏览器原生 Web Speech API，数据不出本机。</li>
-</ul>
-<h2 id="体验完整性">2.5 体验完整性</h2>
-<p>动态 Canvas 知识网络背景贯穿全站、NDJSON
-流式输出、语音输入与朗读、ECharts 能力雷达图、简历打印预览。未配置 Key
-时功能零阉割。</p>
+<p><strong>亮点一：不是 API 调用，是真正的 Agent。</strong>
+完整实现五阶段 Agent 流水线——安全护栏 → RAG 检索 → 工具循环（≤4 轮）→
+流式合成 →
+事实校验。大模型自主决定调用哪些工具，工具返回的数据注入下一轮上下文，形成”思考—调用—再思考”的闭环，而非单轮问答。</p>
+<p><strong>亮点二：工具轨迹全程可视化。</strong> 前端将 Agent
+的思考过程渲染为「查看依据」卡片：调用了哪些工具、传入什么参数、返回什么真实数据、引用了知识库哪些片段、事实校验是否通过。这是本平台与”套壳聊天”作品最直观的区别，也是评委可以快速验证的一点。</p>
+<p><strong>亮点三：专业对口深度。</strong> 175 个专业映射到 19
+个专业方向，档案自评选项、课程库、竞赛推荐、规划内容全部按方向动态生成，不会出现给文科生推编程能力自评的错配。竞赛推荐采用三级匹配器，先按对口程度分档、再按综合评分排序，避免”不限专业”的比赛挤掉真正为本专业办的比赛。26
+个专业两轮批量回归验证，方向判定全部正确。</p>
+<p><strong>亮点四：负责任的 AI。</strong>
+注入攻击拦截、敏感信息脱敏、防幻觉校验（答案中的数字必须在工具返回数据中出现，否则标记为存疑）；图像识别结果强制人工核对后才入库；语音识别使用浏览器原生
+Web Speech API，数据不出本机。</p>
+<p><strong>亮点五：零依赖自研 RAG。</strong> 不引入向量数据库，用 BM25
+词频（权重 55%）+ 128 维哈希向量余弦（权重 45%）双路召回融合，启动时对
+4200+ 语料片段建索引，检索结果带来源标注，可直接溯源。</p>
+<p><strong>亮点六：体验完整性。</strong> 动态 Canvas
+知识网络背景贯穿全站、NDJSON 流式打字机输出、语音输入与朗读、ECharts
+能力雷达图、简历打印预览；前端分包优化（vendor-core 81KB /
+vendor-echarts 343KB / vendor-element 966KB）。</p>
 <h1 id="三ai-技术落地使用情况概述">三、AI 技术落地使用情况概述</h1>
+<p>本作品的 AI 能力不是点缀，而是贯穿业务主线的核心驱动。下表列出每一项
+AI 能力的落地场景与实现方式：</p>
 <table>
 <colgroup>
 <col style="width: 33%" />
@@ -177,131 +178,185 @@ Agent</h2>
 <tr>
 <th>AI 能力</th>
 <th>落地场景</th>
-<th>实现方式</th>
+<th>实现方式与效果</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>LLM Agent</strong></td>
 <td>AI 成长助手</td>
-<td>自研 AgentRuntime：护栏→RAG→工具循环≤4轮→流式合成→事实校验</td>
+<td>自研 <code>AgentRuntime</code> 五阶段流水线，NDJSON
+事件流逐帧推送，前端实时显示”正在检索知识库 → 正在调用工具 →
+正在整合资料”</td>
 </tr>
 <tr>
 <td><strong>Function Calling</strong></td>
 <td>8 个只读工具</td>
-<td>一份定义两套出口：OpenAI tools 协议 + MCP manifest</td>
+<td>一份 JSON Schema 双重导出：OpenAI tools 协议 + MCP
+manifest，两个协议下行为一致</td>
 </tr>
 <tr>
 <td><strong>RAG 检索增强</strong></td>
-<td>知识问答引用溯源</td>
-<td>零依赖本地实现：BM25(55%) + 128 维哈希向量余弦(45%)，4200+ 片段</td>
+<td>知识问答与引用溯源</td>
+<td>零依赖本地实现：BM25(55%) + 128 维哈希向量余弦(45%)，4200+
+片段，命中片段在「查看依据」中列出</td>
 </tr>
 <tr>
 <td><strong>多模态（视觉）</strong></td>
 <td>证书/奖状拍照录入</td>
-<td>visionForUser 接口抽取字段，人工核对后入库</td>
+<td><code>visionForUser</code>
+接口抽取证书字段，强制人工核对后才写入数据库</td>
 </tr>
 <tr>
 <td><strong>多模态（语音）</strong></td>
-<td>语音输入/朗读</td>
-<td>Web Speech API，本地识别</td>
+<td>语音提问与朗读</td>
+<td>浏览器原生 Web Speech API，本地识别，数据不出本机</td>
 </tr>
 <tr>
 <td><strong>AI 安全护栏</strong></td>
-<td>全站</td>
-<td>注入正则拦截、脱敏、防幻觉 LCS 校验、JSON 自修复</td>
+<td>全站所有 AI 入口</td>
+<td>注入正则拦截、手机号/身份证脱敏、LCS 防幻觉校验、JSON
+自修复（模型返回残缺 JSON 时自动补齐）</td>
 </tr>
 <tr>
 <td><strong>降级与兜底</strong></td>
 <td>无 Key 环境</td>
-<td>本地规则编排引擎，工具真实执行，诚实标注来源</td>
+<td>本地规则编排引擎，工具真实执行、数据真实返回，页面诚实标注当前输出来源</td>
 </tr>
 <tr>
 <td><strong>MCP 协议</strong></td>
 <td>能力外放</td>
-<td>独立 Node.js MCP Server（stdio
-JSON-RPC），initialize/tools/list/tools/call 全部通过</td>
+<td>独立 Node.js MCP Server（stdio JSON-RPC），<code>initialize</code> /
+<code>tools/list</code> / <code>tools/call</code> 全部通过实测</td>
 </tr>
 </tbody>
 </table>
+<p><strong>落地成效实测</strong>：以法学专业学生提问”我该参加哪些竞赛”为例，Agent
+自主调用 2 个工具，返回 17 场法律类赛事，零 IT 类越界推荐，事实校验 0
+处存疑；26
+个专业两轮批量回归中，仅外语方向出现过一次错配，已修复并补充单元测试。</p>
 <h1 id="四项目关键技术">四、项目关键技术</h1>
 <h2 id="技术栈">4.1 技术栈</h2>
 <ul>
 <li><strong>后端</strong>：Java 17 / Spring Boot 2.7 / MyBatis-Plus /
 Spring Security + JWT / H2（演示）与 MySQL 8（生产）</li>
 <li><strong>前端</strong>：Vue 3 / Vite 5 / Pinia / Element Plus 2 /
-ECharts / 原生 Web Speech API</li>
+ECharts / 原生 Web Speech API / Canvas 粒子系统</li>
 <li><strong>AI 层</strong>：OpenAI Chat Completions 兼容协议、NDJSON
-流式事件、Function Calling、MCP 协议（Model Context Protocol）</li>
-<li><strong>工程化</strong>：Maven 3.9 / manualChunks 前端分包 / Docker
+流式事件、Function Calling、MCP（Model Context Protocol）</li>
+<li><strong>工程化</strong>：Maven 3.9 / Vite manualChunks 分包 / Docker
 Compose 一键部署 / 57 个单元测试</li>
 </ul>
-<h2 id="关键设计">4.2 关键设计</h2>
+<h2 id="六个关键设计">4.2 六个关键设计</h2>
 <ol type="1">
 <li><strong>Agent 运行时（AgentRuntime）</strong>：五阶段流水线，NDJSON
-事件流逐帧推送给前端，前端实时渲染阶段提示（正在检索知识库 →
-正在调用工具 → 正在整合资料）。</li>
+事件流逐帧推送给前端，前端实时渲染阶段提示，用户能看到
+AI”正在做什么”而非干等。</li>
 <li><strong>工具注册表（ToolRegistry）</strong>：8 个工具用一份 JSON
-Schema 同时导出 OpenAI tools 定义和 MCP
-manifest，保证两个协议下行为一致。</li>
-<li><strong>零依赖 RAG</strong>：不引入向量数据库，BM25 词频 +
-哈希向量余弦双路召回按权重融合，启动时对 4200+ 语料片段建索引。</li>
-<li><strong>三级竞赛匹配器（CompetitionMajorMatcher）</strong>：EXACT/OPEN/RELATED
-分档后按「专业对口度 + 难度匹配 + 年级匹配 + 时间充裕度」加权排序。</li>
-<li><strong>事实校验（AiGuard）</strong>：答案中的关键数字与工具返回做
-LCS 匹配，找不到出处的数字会被标记为存疑。</li>
+Schema 同时导出 OpenAI tools 定义与 MCP
+manifest，避免两套定义行为漂移。</li>
+<li><strong>零依赖 RAG（RagService）</strong>：BM25 词频 +
+哈希向量余弦双路召回按权重融合，启动时对 4200+
+语料片段建索引，无需外部向量库。</li>
+<li><strong>三级竞赛匹配器（CompetitionMajorMatcher）</strong>：EXACT /
+OPEN / RELATED 分档后，按”专业对口度 + 难度匹配 + 年级匹配 +
+时间充裕度”加权排序，解决推荐顺序错乱问题。</li>
+<li><strong>事实校验（AiGuard）</strong>：答案中的关键数字与工具返回数据做
+LCS（最长公共子串）匹配，找不到出处的数字被标记为存疑并提示用户。</li>
 <li><strong>换专业数据自愈</strong>：保存档案时按新方向显式清空旧方向自评，画像与
-Agent 工具按方向动态选数据源，杜绝跨专业污染。</li>
+Agent
+工具按方向动态选数据源，杜绝跨专业数据污染（如从医学转到计算机后残留旧自评）。</li>
 </ol>
 <h1 id="五项目相关图片">五、项目相关图片</h1>
+<div class="imgrow">
 <figure>
-<img src="images/login.png" alt="登录页" />
-<figcaption aria-hidden="true">登录页</figcaption>
+<img src="images/login.png">
+<figcaption>
+登录页：动态知识网络背景 + 演示账号一键填充
+</figcaption>
 </figure>
-<p>登录页：动态知识网络背景 + 演示账号一键填充。</p>
 <figure>
-<img src="images/home.png" alt="首页成长闭环" />
-<figcaption aria-hidden="true">首页成长闭环</figcaption>
+<img src="images/home.png">
+<figcaption>
+首页：成长闭环六节点，进度实时推进
+</figcaption>
 </figure>
-<p>首页：成长闭环六节点，档案/规划/竞赛/简历进度实时推进。</p>
+</div>
+<div class="imgrow">
 <figure>
-<img src="images/competitions-recommend.png" alt="竞赛推荐" />
-<figcaption aria-hidden="true">竞赛推荐</figcaption>
+<img src="images/profile.png">
+<figcaption>
+档案初始化：能力自评项按专业方向动态生成
+</figcaption>
 </figure>
-<p>竞赛推荐：三级对口标记（精确对口/不限专业/同大类）+ 评分理由。</p>
 <figure>
-<img src="images/courses-automation.png" alt="课程自动匹配" />
-<figcaption aria-hidden="true">课程自动匹配</figcaption>
+<img src="images/plan.png">
+<figcaption>
+学习计划：周计划 + 打卡，打卡后 AI 重排
+</figcaption>
 </figure>
-<p>课程自动匹配：按专业方向动态生成，覆盖 175 个专业。</p>
+</div>
+<div class="imgrow">
 <figure>
-<img src="images/admin.png" alt="管理后台" />
-<figcaption aria-hidden="true">管理后台</figcaption>
+<img src="images/competitions-recommend.png">
+<figcaption>
+竞赛推荐：三级对口标记 + 评分理由
+</figcaption>
 </figure>
-<p>管理后台：用户管理、数据概览、级联清理。</p>
+<figure>
+<img src="images/assistant-trace.png">
+<figcaption>
+AI 助手「查看依据」：工具调用轨迹、引用来源、事实校验
+</figcaption>
+</figure>
+</div>
+<div class="imgrow">
+<figure>
+<img src="images/growth.png">
+<figcaption>
+成长档案：学习打卡与证书拍照录入
+</figcaption>
+</figure>
+<figure>
+<img src="images/resume.png">
+<figcaption>
+简历中心：一键汇总生成可打印简历
+</figcaption>
+</figure>
+</div>
+<figure>
+<img src="images/admin.png">
+<figcaption>
+管理后台：用户管理、数据概览、级联清理
+</figcaption>
+</figure>
 <h1 id="六项目发表或获奖情况">六、项目发表或获奖情况</h1>
 <p>本项目为本团队 2026 年为第九届传智杯 AI WEB
-网页开发挑战赛开发的原创作品，<strong>未在任何期刊、会议公开发表，未获得过其他赛事奖项</strong>。</p>
+网页开发挑战赛开发的原创作品，<strong>此前未在任何期刊、会议公开发表，未获得过其他赛事奖项，也未用于其他商业用途</strong>。全部代码与文档均为本团队独立开发，知识产权清晰。</p>
 <h1 id="七项目优化与原创说明">七、项目优化与原创说明</h1>
-<p>本项目以基础的前后端脚手架为起点，以下核心模块均为本团队原创实现：</p>
+<p>本作品以通用的前后端脚手架（Spring Boot 初始化项目 + Vue 3
+基础工程）为起点，以下核心模块<strong>均为本团队原创设计与实现</strong>：</p>
 <ol type="1">
 <li><strong>Agent 运行时与工具系统</strong>（约 3000
 行）：五阶段流水线、8 个只读工具、NDJSON 事件流、无 Key
-降级编排，完全自研。</li>
+降级编排，完全自研，未使用任何 Agent 框架。</li>
 <li><strong>RAG 检索与引用溯源</strong>：零依赖 BM25 +
-哈希向量双路融合检索，4200+ 片段本地建索引。</li>
+哈希向量双路融合检索，4200+ 片段本地建索引，检索结果带来源标注。</li>
 <li><strong>专业方向体系</strong>：175 个专业到 19
-个方向的映射表、按方向动态生成的课程/自评/竞赛模板，全部人工梳理。</li>
-<li><strong>三级竞赛匹配器与五档离线评分</strong>：自研算法。</li>
+个方向的映射表、按方向动态生成的课程/自评/竞赛/规划模板，全部人工梳理。</li>
+<li><strong>三级竞赛匹配器与五档离线评分</strong>：自研匹配与评分算法，解决”推荐顺序错乱”“分数全相同的”问题。</li>
 <li><strong>安全护栏与事实校验</strong>：注入拦截、脱敏、LCS
-防幻觉校验，自研。</li>
+防幻觉校验、JSON 自修复，自研。</li>
 <li><strong>前端动态知识网络背景</strong>：Canvas
 粒子系统自研，非现成组件。</li>
 <li><strong>MCP Server</strong>：独立 Node.js 实现，可运行、可对接标准
 MCP 客户端。</li>
+<li><strong>多轮测试中发现并修复的问题</strong>：换专业后旧方向自评残留污染画像（已加显式清理
++
+单元测试）；外语专业错配到汉语言文学课程（新增外语类方向，补充英语/商务英语/日语断言）。</li>
 </ol>
-<p>除 Spring Boot / Vue / Element Plus / ECharts
-等业界通用开源框架外，业务代码与 AI 层均为原创，未使用任何「开箱即用」的
-AI 应用模板。</p>
+<p>除 Spring Boot / Vue 3 / Element Plus / ECharts
+等业界通用开源框架外，业务代码与 AI 层均为原创，未使用任何”开箱即用”的
+AI 应用模板或低代码生成方案。</p>
 </body>
 </html>
