@@ -171,24 +171,24 @@ onMounted(async () => {
 .bili-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: rgba(255,181,107,.4); }
 .bili-card.rec { border-color: rgba(255,181,107,.3); }
 
-.card-top { display: flex; justify-content: space-between; align-items: center; }
-.cat-tag { background: rgba(255,181,107,.12); color: #FFB56B; border-color: transparent; }
-.card-title { font-size: 15px; font-weight: 600; line-height: 1.4; }
-.card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; flex: 1; }
+.card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cat-tag { background: rgba(255,181,107,.12); color: #FFB56B; border-color: transparent; flex-shrink: 0; }
+.card-title { font-size: 15px; font-weight: 600; line-height: 1.4; word-break: break-word; }
+.card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; flex: 1; word-break: break-word; }
 
 .match-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.match-score { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+.match-score { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; flex-shrink: 0; white-space: nowrap; }
 .match-score.exact { color: #4CD7A0; background: rgba(0,210,160,.12); }
 .match-score.related { color: #FFB56B; background: rgba(255,181,107,.12); }
 .match-score.open { color: var(--text-muted); background: rgba(255,255,255,.06); }
-.match-reason { font-size: 11.5px; color: var(--text-secondary); }
+.match-reason { font-size: 11.5px; color: var(--text-secondary); word-break: break-word; min-width: 0; }
 
-.card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
-.up-name { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; gap: 10px; }
+.up-name { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .go-btn {
   font-size: 12.5px; font-weight: 600; color: #FF9F69; text-decoration: none;
   padding: 5px 12px; border-radius: 6px; background: rgba(255,159,105,.12);
-  transition: all var(--transition);
+  transition: all var(--transition); flex-shrink: 0; white-space: nowrap;
 }
 .go-btn:hover { background: rgba(255,159,105,.22); }
 
