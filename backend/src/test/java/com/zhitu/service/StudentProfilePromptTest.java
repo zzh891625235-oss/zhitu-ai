@@ -3,8 +3,11 @@ package com.zhitu.service;
 import com.zhitu.ai.AIService;
 import com.zhitu.entity.StudentProfile;
 import com.zhitu.entity.User;
+import com.zhitu.mapper.AiPlanMapper;
+import com.zhitu.mapper.LearningRecordMapper;
 import com.zhitu.mapper.MajorMapper;
 import com.zhitu.mapper.StudentProfileMapper;
+import com.zhitu.mapper.StudyPlanMapper;
 import com.zhitu.mapper.UserMapper;
 import com.zhitu.service.impl.StudentProfileServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +33,9 @@ class StudentProfilePromptTest {
             mock(StudentProfileMapper.class),
             mock(UserMapper.class),
             mock(MajorMapper.class),
+            mock(AiPlanMapper.class),
+            mock(StudyPlanMapper.class),
+            mock(LearningRecordMapper.class),
             mock(AIService.class));
     }
 

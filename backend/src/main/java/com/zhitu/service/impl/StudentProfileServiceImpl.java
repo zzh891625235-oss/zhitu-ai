@@ -1,19 +1,27 @@
 package com.zhitu.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
 import com.zhitu.ai.MajorDirection;
+import com.zhitu.entity.AiPlan;
+import com.zhitu.entity.LearningRecord;
 import com.zhitu.entity.Major;
 import com.zhitu.entity.StudentProfile;
+import com.zhitu.entity.StudyPlan;
 import com.zhitu.entity.User;
+import com.zhitu.mapper.AiPlanMapper;
+import com.zhitu.mapper.LearningRecordMapper;
 import com.zhitu.mapper.MajorMapper;
 import com.zhitu.mapper.StudentProfileMapper;
+import com.zhitu.mapper.StudyPlanMapper;
 import com.zhitu.mapper.UserMapper;
 import com.zhitu.service.StudentProfileService;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -26,16 +34,25 @@ public class StudentProfileServiceImpl implements StudentProfileService {
     private final StudentProfileMapper profileMapper;
     private final UserMapper userMapper;
     private final MajorMapper majorMapper;
+    private final AiPlanMapper aiPlanMapper;
+    private final StudyPlanMapper studyPlanMapper;
+    private final LearningRecordMapper learningRecordMapper;
     private final AIService aiService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public StudentProfileServiceImpl(StudentProfileMapper profileMapper,
                                       UserMapper userMapper,
                                       MajorMapper majorMapper,
+                                      AiPlanMapper aiPlanMapper,
+                                      StudyPlanMapper studyPlanMapper,
+                                      LearningRecordMapper learningRecordMapper,
                                       AIService aiService) {
         this.profileMapper = profileMapper;
         this.userMapper = userMapper;
         this.majorMapper = majorMapper;
+        this.aiPlanMapper = aiPlanMapper;
+        this.studyPlanMapper = studyPlanMapper;
+        this.learningRecordMapper = learningRecordMapper;
         this.aiService = aiService;
     }
 
@@ -55,14 +72,61 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         StudentProfile existing = profileMapper.selectOne(
             new LambdaQueryWrapper<StudentProfile>().eq(StudentProfile::getUserId, userId));
         if (existing != null) {
+            boolean majorChanged = !Objects.equals(existing.getMajorId(), profile.getMajorId());
             profile.setId(existing.getId());
             profile.setUserId(userId);
             profileMapper.updateById(profile);
+            // 换了专业后，之前按旧专业生成的数据全部作废，必须清掉，
+            // 否则首页/规划页/学习页还会显示旧专业的内容（「换专业后好多东西还是原来的」）。
+            // 清理后前端会引导用户重新生成画像、规划与学习计划。
+            if (majorChanged) {
+                resetMajorDerivedData(userId);
+            }
         } else {
             profile.setUserId(userId);
             profileMapper.insert(profile);
         }
         return profile;
+    }
+
+    /**
+     * 换专业时清理所有「依赖专业」的已生成数据：
+     * AI 画像、四年规划、未来的学习计划、旧专业课程的打卡记录。
+     *
+     * 注意两点：
+     * 1. aiPortrait 不能用 updateById 置 null（MyBatis-Plus 默认跳过 null 字段），
+     *    必须用 LambdaUpdateWrapper 显式 set null 才能真正清空；
+     * 2. 学习记录只清旧专业课程的打卡（LearningRecord），不动成长档案（GrowthRecord，
+     *    证书/语音/成就等），那些是学生的历史成果，换了专业也仍然有效。
+     */
+    private void resetMajorDerivedData(Long userId) {
+        try {
+            // 用字符串列名而不是 LambdaUpdateWrapper：后者依赖 MyBatis-Plus 的
+            // lambda 缓存，纯单元测试环境下未初始化会抛
+            // "can not find lambda cache for this entity"。
+            profileMapper.update(null, new UpdateWrapper<StudentProfile>()
+                .eq("user_id", userId)
+                .set("ai_portrait", null));
+        } catch (Exception ignored) {
+            // 画像清空失败不阻断档案保存
+        }
+        try {
+            aiPlanMapper.delete(new LambdaQueryWrapper<AiPlan>()
+                .eq(AiPlan::getUserId, userId)
+                .eq(AiPlan::getPlanType, "FOUR_YEAR"));
+        } catch (Exception ignored) {
+        }
+        try {
+            studyPlanMapper.delete(new LambdaQueryWrapper<StudyPlan>()
+                .eq(StudyPlan::getUserId, userId)
+                .ge(StudyPlan::getPlanDate, LocalDate.now()));
+        } catch (Exception ignored) {
+        }
+        try {
+            learningRecordMapper.delete(new LambdaQueryWrapper<LearningRecord>()
+                .eq(LearningRecord::getUserId, userId));
+        } catch (Exception ignored) {
+        }
     }
 
     @Override
