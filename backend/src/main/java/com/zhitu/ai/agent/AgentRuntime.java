@@ -43,6 +43,11 @@ import java.util.function.Consumer;
  * <h3>降级策略</h3>
  * 没有 API Key 时依然可用：工具照样真实执行、数据照样来自数据库，
  * 只是由 {@link OfflineComposer} 依据规则合成文本。功能降级，诚实不降级。
+ *
+ * <h3>多轮记忆</h3>
+ * 每轮开始前从 {@code ai_chat} 表加载最近 {@link #HISTORY_ROUNDS} 轮问答注入上下文，
+ * 单条截断到 {@link #HISTORY_CLIP} 字符控制 token 成本；历史加载失败只降级为
+ * 「无记忆」，绝不让对话崩溃。
  */
 @Component
 public class AgentRuntime {
@@ -51,6 +56,12 @@ public class AgentRuntime {
 
     /** 单次问答允许的最大工具轮次，防止模型陷入无限调用拖垮响应 */
     public static final int MAX_STEPS = 4;
+
+    /** 对话记忆窗口：最多带入最近 3 轮（6 条消息），让「那它呢」「第二个怎么样」这类追问能接上 */
+    public static final int HISTORY_ROUNDS = 3;
+
+    /** 单条历史内容的最大字符数，防止之前的超长回答把上下文撑爆 */
+    public static final int HISTORY_CLIP = 300;
 
     private final ToolRegistry registry;
     private final AIService aiService;
@@ -137,6 +148,13 @@ public class AgentRuntime {
         }
 
         List<Map<String, Object>> messages = new ArrayList<>();
+        // 对话记忆：先注入最近几轮历史，再放当前问题。
+        // 没有这一步，模型看不到上文，「那第二个呢」「它什么时候开始报名」这类追问会全部落空。
+        List<Map<String, Object>> history = loadHistory(userId, type);
+        messages.addAll(history);
+        if (!history.isEmpty()) {
+            emit(sink, "status", "phase", "memory", "text", "已带入最近 " + (history.size() / 2) + " 轮对话记忆");
+        }
         messages.add(message("user", "content", q));
         StringBuilder toolContext = new StringBuilder();
         List<ToolOutcome> outcomes = new ArrayList<>();
@@ -384,6 +402,50 @@ public class AgentRuntime {
             items.add(m);
         }
         return items;
+    }
+
+    /**
+     * 加载对话记忆：取最近 {@link #HISTORY_ROUNDS} 轮问答，按时间正序注入上下文。
+     *
+     * <p>只读不写——写库在 {@link #saveChat} 收尾时统一做。
+     * 单条内容截断到 {@link #HISTORY_CLIP} 字符，避免长回答把上下文撑爆。
+     * 历史加载失败不影响本轮对话（降级为无记忆模式），因为聊天可短暂失忆、不可直接崩溃。
+     */
+    private List<Map<String, Object>> loadHistory(Long userId, String type) {
+        if (userId == null) {
+            return Collections.emptyList();
+        }
+        try {
+            List<AiChat> rows = chatMapper.selectList(new LambdaQueryWrapper<AiChat>()
+                    .eq(AiChat::getUserId, userId)
+                    .eq(AiChat::getChatType, type)
+                    .orderByDesc(AiChat::getId)
+                    .last("LIMIT " + (HISTORY_ROUNDS * 2)));
+            if (rows == null || rows.isEmpty()) {
+                return Collections.emptyList();
+            }
+            Collections.reverse(rows); // 取的是倒序，转回时间正序
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (AiChat row : rows) {
+                if (row.getQuestion() != null && !row.getQuestion().trim().isEmpty()) {
+                    out.add(message("user", "content", clipText(row.getQuestion().trim())));
+                }
+                if (row.getAnswer() != null && !row.getAnswer().trim().isEmpty()) {
+                    out.add(message("assistant", "content", clipText(row.getAnswer().trim())));
+                }
+            }
+            return out;
+        } catch (Exception e) {
+            log.debug("加载对话历史失败（按无记忆继续）：{}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private static String clipText(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.length() <= HISTORY_CLIP ? s : s.substring(0, HISTORY_CLIP) + "…";
     }
 
     private String majorNameOf(Long userId) {

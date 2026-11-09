@@ -6,6 +6,7 @@
       </span>
       <span class="trace-summary">
         <template v-if="citations.length">检索 {{ citations.length }} 条资料</template>
+        <template v-else-if="verify">未命中本地知识库</template>
         <template v-if="steps.length"> · 调用 {{ steps.length }} 个工具</template>
         <template v-if="verify && verify.checkedFacts"> · 核对 {{ verify.checkedFacts }} 条事实</template>
       </span>
@@ -39,6 +40,13 @@
           <span class="cite-score">相关度 {{ c.score }}</span>
           <div class="cite-excerpt">{{ c.excerpt }}</div>
         </div>
+      </div>
+
+      <!-- RAG 零命中时的诚实提示：不假装用了知识库 -->
+      <div class="trace-block trace-nohit" v-else-if="verify">
+        <div class="block-title">知识库检索</div>
+        <div class="nohit-text">本次提问未在本地知识库（竞赛库 / 课程库 / 方法语料）中检索到相关内容，
+          以上回答来自大模型通用知识，具体赛事名与数字请以官方渠道为准。</div>
       </div>
 
       <!-- 事实一致性校验 -->
@@ -133,6 +141,7 @@ function sourceLabel(src) {
 .cite-title { color: #fff; font-weight: 600; }
 .cite-score { color: var(--text-muted); margin-left: 6px; font-size: 10.5px; }
 .cite-excerpt { color: var(--fog); margin-top: 2px; line-height: 1.5; font-size: 11px; }
+.trace-nohit .nohit-text { color: var(--text-muted); line-height: 1.6; font-size: 11.5px; }
 
 .trace-verify { padding: 7px 10px; border-radius: 8px; line-height: 1.5; font-size: 11.5px; }
 .trace-verify.ok { background: rgba(102, 187, 106, .09); color: #8CD79A; }

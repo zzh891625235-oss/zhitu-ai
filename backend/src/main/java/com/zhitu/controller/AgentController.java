@@ -38,12 +38,15 @@ public class AgentController {
     private final AgentRuntime runtime;
     private final ToolRegistry registry;
     private final RagService ragService;
+    private final com.zhitu.ai.guard.AgentRateLimiter rateLimiter;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public AgentController(AgentRuntime runtime, ToolRegistry registry, RagService ragService) {
+    public AgentController(AgentRuntime runtime, ToolRegistry registry, RagService ragService,
+                           com.zhitu.ai.guard.AgentRateLimiter rateLimiter) {
         this.runtime = runtime;
         this.registry = registry;
         this.ragService = ragService;
+        this.rateLimiter = rateLimiter;
     }
 
     /**
@@ -80,6 +83,25 @@ public class AgentController {
         response.setHeader("X-Accel-Buffering", "no");
 
         PrintWriter writer = response.getWriter();
+
+        // 频率限制：一次 Agent 对话成本 = 1 次 RAG + 至多 4 轮工具循环 + 1 次流式合成，
+        // 必须在进入流水线之前拦住。超限时不静默丢弃，而是发一个 blocked 事件并说明等待时长。
+        if (!rateLimiter.tryAcquire(userId)) {
+            long wait = rateLimiter.retryAfterSeconds(userId);
+            Map<String, Object> node = new LinkedHashMap<>();
+            node.put("type", "blocked");
+            node.put("reason", "提问太频繁了，请约 " + Math.max(wait, 5) + " 秒后再试。"
+                    + "（每次回答都要执行检索、工具调用与流式合成，限流是为了保护模型额度与服务稳定）");
+            try {
+                writer.write(objectMapper.writeValueAsString(node));
+                writer.write('\n');
+                writer.flush();
+            } catch (Exception ignored) {
+                // 客户端已断开
+            }
+            return;
+        }
+
         try {
             runtime.run(userId, question, scene, event -> {
                 try {
