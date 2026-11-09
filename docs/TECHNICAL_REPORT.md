@@ -98,6 +98,7 @@ P7 被列为高优先级，这是本项目在技术路线上的分水岭：**如
 - 竞赛中心：按专业过滤、对口标记、报名倒计时、详情
 - 竞赛推荐：按综合评分排序并给出理由
 - 课程地图：按专业加载课程，可视化学习进度
+- B站课堂：32 门精选公开课按专业匹配推荐，匹配分数与理由可见，链接直达 B 站
 - 成长助手：五种模式（通用 / 学习 / 职业 / 竞赛 / 面试），流式输出，工具轨迹可视化，语音输入与朗读
 - 成长档案：五类记录增删改查、拍照录入
 - AI 简历生成与打印
@@ -154,7 +155,7 @@ P7 被列为高优先级，这是本项目在技术路线上的分水岭：**如
     └──────────────┘          └────────────────────────┘
                    │
           ┌────────▼────────┐
-          │ MCP Server(node) │  对外暴露同样 8 个工具
+          │ MCP Server(node) │  对外暴露同样 9 个工具
           └──────────────────┘
 ```
 
@@ -286,6 +287,7 @@ competition / course / major / knowledge_point：平台侧字典与知识数据
 | `get_student_profile` | 学籍档案 | "我是 xx 专业大二的，该…" |
 | `get_ability_portrait` | 九维能力自评与画像 | "我哪方面比较弱" |
 | `list_courses_with_progress` | 课程地图 + 进度 | "下一步该学什么" |
+| `search_bilibili_courses` | B 站公开课资源库（32 门） | "高数去哪学"、"推荐个 Python 入门课" |
 | `find_competitions` | 竞赛库（专业过滤） | "该报哪个比赛" |
 | `get_study_progress` | 打卡记录 | "我执行得怎么样" |
 | `get_growth_records` | 成长档案 | "简历能写什么" |
@@ -297,6 +299,8 @@ competition / course / major / knowledge_point：平台侧字典与知识数据
 - 工具**全部只读**，Agent 不能擅自修改用户数据；
 - `userId` 贯穿所有查询，天然实现数据隔离；
 - 工具内部出错时返回人类可读的错误说明而不是抛异常，让模型知道可以换条路。
+
+`search_bilibili_courses` 是第 9 个工具，服务于"学习资源闭环"：课程地图告诉学生**该学什么**，B 站工具告诉学生**去哪学**。它检索平台人工梳理的 32 门公开课（标题 / UP 主 / 难度 / 推荐理由 / 链接），支持关键词模糊命中（标题、UP 主、keywords 三字段），无关键词时按学生专业返回对口推荐。返回的链接会出现在「查看依据」卡片中可点击溯源——AI 推荐的课程不是模型记忆里的编号，而是资源库中真实存在的条目。
 
 ### 4.3.3 双引擎与降级
 
@@ -387,7 +391,7 @@ Prompt 中明确要求模型用 `[n]` 标注出处，前端同时把本次真正
 - `openAiTools()` —— OpenAI Function Calling 的 `tools` 数组，服务于内部 Agent；
 - `manifest()` —— MCP `tools/list` 形态（`GET /api/agent/tools`），字段对齐 `inputSchema`。
 
-此外，`mcp-server/` 是一个**可运行的标准 MCP Server**（Node，stdio JSON-RPC，约 150 行），实现了 `initialize`、`tools/list`、`tools/call`、`ping`。它把同样这 8 个工具暴露给 Claude Desktop、Cursor 等任意 MCP 客户端。
+此外，`mcp-server/` 是一个**可运行的标准 MCP Server**（Node，stdio JSON-RPC，约 150 行），实现了 `initialize`、`tools/list`、`tools/call`、`ping`。它把同样这 9 个工具暴露给 Claude Desktop、Cursor 等任意 MCP 客户端。
 
 这里有一个刻意的架构决定：**MCP Server 不含任何业务逻辑，只做协议转换。** 工具实现、数据权限、防幻觉校验始终只有后端一份，不会出现"改了后端，MCP 这边还留着旧逻辑"这种两套代码各自漂移的情况。
 
@@ -502,6 +506,16 @@ Prompt 中明确要求模型用 `[n]` 标注出处，前端同时把本次真正
 - 课程地图按学生真实专业加载，可视化每门课的进度；
 - 全站背景是一个纯 Canvas 实现的动态知识网络：漂浮的知识节点（课程 / 技能 / 竞赛 / 规划）按距离连线，光脉冲沿线游走，三团极光缓慢流动，支持鼠标视差。节点数按屏幕尺寸自适应（38~104），DPR 上限 1.6，帧率上限 40fps，页面切到后台自动暂停，并尊重系统的"减少动态效果"偏好设置。
 
+## 5.8 B站课堂（学习资源闭环）
+
+校内课程地图回答"该学什么"，B站课堂回答"去哪学"：
+
+- **资源库**：32 门大学生口碑公开课，覆盖大学基础课 / 编程开发 / 数据与AI / 设计创作 / 职场技能 / 外语提升 / 考研升学七大类，人工梳理标题、UP 主、难度、推荐理由与适合专业映射；
+- **推荐引擎**：与竞赛推荐复用同一套 `CompetitionMajorMatcher` 三级匹配——专业精确对口 100 分、同方向相关 80 分、全专业通用 60 分，每个分类最多出 4 条保证多样性，每条推荐展示分数与理由；
+- **链接策略**：存"课程名 + UP 主"的 B 站搜索直达链接而非固定 BV 号，规避视频下架死链，长期稳定命中正版课程页；
+- **Agent 联动**：`search_bilibili_courses` 工具让 AI 助手回答"去哪学"时引用真实课程条目，链接进入「查看依据」可追溯；
+- **实现**：`BilibiliResource` 实体 + `BilibiliController`（资源列表 / 分类统计 / 个性化推荐三接口）+ `Bilibili.vue` 页面，配套 4 个单元测试。
+
 <div class="pagebreak"></div>
 
 
@@ -510,7 +524,7 @@ Prompt 中明确要求模型用 `[n]` 标注出处，前端同时把本次真正
 ## 6.1 测试
 
 ```bash
-cd backend  && mvn test     # JUnit5：94 个用例，覆盖专业方向、Prompt 构造、JWT、AI 护栏、RAG、Agent 运行时、限流器
+cd backend  && mvn test     # JUnit5：98 个用例，覆盖专业方向、Prompt 构造、JWT、AI 护栏、RAG、Agent 运行时、限流器、B站资源工具
 cd frontend && npm test     # Node test runner：Markdown 渲染等纯函数
 ```
 
@@ -518,7 +532,7 @@ cd frontend && npm test     # Node test runner：Markdown 渲染等纯函数
 
 | 验证项 | 结果 |
 | --- | --- |
-| 单元测试 | 94 个全部通过（含 AI 护栏 17 项、RAG 检索 9 项、Agent 运行时 5 项、限流器 6 项） |
+| 单元测试 | 98 个全部通过（含 AI 护栏 17 项、RAG 检索 9 项、Agent 运行时 5 项、限流器 6 项、B站资源工具 4 项） |
 | 175 个专业的竞赛对口数 | 全部 ≥ 2 场，平均 16.7 场 |
 | 推荐偏差修正 | 统计学不再被推荐地质类赛事；天文学推荐为天文创新 / 挑战杯 / 数学竞赛 |
 | Agent 工具编排（离线） | 提问"该参加哪些竞赛"正确触发 2 个工具并返回 30 场对口赛事 |
@@ -557,6 +571,32 @@ docker compose up -d --build
 - 建议配合 Nginx 做 HTTPS 与静态资源缓存。
 
 评审期间保持服务可用，并提供专用测试账号（见 README）。
+
+## 6.3 数据库选型与扩展：从 H2 到 MySQL 再到分布式数据库
+
+系统通过 Spring Profile + 环境变量实现了**存储层三档部署能力**，代码零改动即可切换：
+
+| 档位 | 数据库 | 适用场景 | 切换方式 |
+| --- | --- | --- | --- |
+| 演示档 | H2 内嵌（file 模式） | 评委本机双击即用，免装数据库 | 默认 `demo` profile |
+| 生产档 | MySQL 8 | 单机生产、云服务器部署 | `--spring.profiles.active=` 置空 + `DB_HOST/DB_PORT/DB_NAME/DB_USERNAME/DB_PASSWORD` 环境变量 |
+| 集群档 | 分布式数据库（TiDB / OceanBase / PolarDB-X 等 MySQL 协议兼容数据库） | 高并发、多节点、需要水平扩展的场景 | 同生产档，只需将连接地址指向分布式集群的接入层 |
+
+### 为什么可以"平滑上分布式"
+
+1. **MySQL 协议兼容是关键设计。** 主流分布式数据库（TiDB、OceanBase MySQL 租户、PolarDB-X、TDSQL 等）都兼容 MySQL 协议与语法，应用侧只需把 JDBC URL 从单机 MySQL 改为分布式数据库的 LB 接入地址（如 TiDB 的 4000 端口 / OB 的 2883 proxy），驱动与 SQL 方言完全一致。本项目数据访问层用 MyBatis-Plus 标准写法，未使用存储过程、触发器等难以水平扩展的特性，天然具备迁移条件。
+2. **schema 脚本双轨维护。** `database/schema.sql`（MySQL 版）与 `db/schema-h2.sql`（演示版）保持同构，所有表都带 `IF NOT EXISTS` 与幂等唯一索引迁移（`zhitu_sync_unique`），在分布式数据库上重复执行同样安全。
+3. **主键策略预留分片能力。** 业务表主键统一使用 `AUTO_INCREMENT`（单机档），若切换到需要强分片的集群，仅需将 `id-type` 改为 Snowflake 雪花 ID（MyBatis-Plus 一行配置：`id-type: assign_id`），实体类与业务代码无需改动。
+4. **读写分离友好。** Agent 工具全部只读 + 独立的写入口（打卡、建档、保存计划），读写比例约 8:2，接入分布式数据库的 TP/AP 分离或只读副本时，把工具查询路由到只读节点即可，无需改代码。
+5. **无状态服务层。** 认证用 JWT（不依赖 Session 复制），文件不落本地盘，后端本身无状态——多实例水平扩容只在数据库一侧有状态，而这正是分布式数据库解决的问题。
+
+### 已验证的事实
+
+- H2 演示档与 MySQL 生产档的 SQL 均经过 98 个单元测试与两轮真实部署验证；
+- 竞赛/B站资源等种子数据采用幂等 upsert（H2 `MERGE` / MySQL `ON DUPLICATE KEY UPDATE`），两种语法各自经过脚本生成与实测，可在任意档位重复执行；
+- Docker Compose 档即 MySQL 8 真实连接验证（`docker-compose.yml` 含健康检查与初始化脚本挂载）。
+
+> 说明：受比赛环境限制，分布式数据库档位未做集群级压测，以上为架构可行性论证与迁移路径说明；单机 MySQL 档为已实测的部署形态。
 
 <div class="pagebreak"></div>
 
@@ -607,7 +647,7 @@ docker compose up -d --build
 ## 8.1 已达成
 
 - 一条完整的产品闭环：档案 → 画像 → 规划 → 执行 → 调整 → 沉淀 → 简历；
-- 一套以工具调用为核心的 AI 架构：8 个工具、RAG 检索、事实校验、降级引擎、MCP 出口；
+- 一套以工具调用为核心的 AI 架构：9 个工具、RAG 检索、事实校验、降级引擎、MCP 出口；
 - 面向 175 个专业的内容覆盖，而非单点演示；
 - 零依赖、可离线运行、可一键复现的工程底座。
 

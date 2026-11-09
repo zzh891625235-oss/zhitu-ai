@@ -27,7 +27,7 @@ spring:
       encoding: UTF-8
       continue-on-error: true
       schema-locations: classpath:db/schema-h2.sql
-      data-locations: classpath:db/competition-seed-h2.sql
+      data-locations: classpath:db/competition-seed-h2.sql,classpath:db/bilibili-seed-h2.sql
 
 # 演示环境日志降噪
 logging:

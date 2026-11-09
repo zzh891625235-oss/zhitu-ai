@@ -255,6 +255,25 @@ CREATE TABLE IF NOT EXISTS notification (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
+-- B 站公开课资源表（专业学习地图的校外补充）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bilibili_resource (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    title VARCHAR(200) NOT NULL,
+    uploader VARCHAR(100),
+    category VARCHAR(50) NOT NULL,
+    keywords VARCHAR(500),
+    difficulty VARCHAR(20) DEFAULT 'BEGINNER',
+    suitable_major VARCHAR(1000),
+    description VARCHAR(500),
+    url VARCHAR(300) NOT NULL,
+    sort_order INT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id), UNIQUE KEY uk_bili_title (title), KEY idx_bili_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
 -- 结构补齐（幂等迁移）
 --
 -- 为什么需要这一段：
@@ -491,6 +510,7 @@ CALL zhitu_sync_unique('major', 'uk_major_name', '`name`');
 CALL zhitu_sync_unique('course', 'uk_course_major_name', '`major_id`,`name`');
 CALL zhitu_sync_unique('competition', 'uk_competition_name', '`name`');
 CALL zhitu_sync_unique('learning_record', 'uk_user_course', '`user_id`,`course_id`');
+CALL zhitu_sync_unique('bilibili_resource', 'uk_bili_title', '`title`');
 
 DROP PROCEDURE IF EXISTS zhitu_sync_unique;
 

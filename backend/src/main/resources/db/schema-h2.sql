@@ -252,3 +252,22 @@ CREATE TABLE IF NOT EXISTS notification (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id), KEY notification__idx_user_read(user_id, is_read)
 );
+
+-- ============================================================
+-- B 站公开课资源表（专业学习地图的校外补充）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bilibili_resource (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    title VARCHAR(200) NOT NULL,
+    uploader VARCHAR(100),
+    category VARCHAR(50) NOT NULL,
+    keywords VARCHAR(500),
+    difficulty VARCHAR(20) DEFAULT 'BEGINNER',
+    suitable_major VARCHAR(1000),
+    description VARCHAR(500),
+    url VARCHAR(300) NOT NULL,
+    sort_order INT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id), UNIQUE KEY bilibili__uk_title(title), KEY bilibili__idx_category(category)
+);

@@ -13,6 +13,7 @@
           <router-link to="/home" class="nav-item" exact-active-class="active">首页</router-link>
           <router-link to="/home/plan" class="nav-item" active-class="active">AI成长规划</router-link>
           <router-link to="/home/courses" class="nav-item" active-class="active">专业学习</router-link>
+          <router-link to="/home/bilibili" class="nav-item" active-class="active">B站课堂</router-link>
           <router-link to="/home/competitions" class="nav-item" active-class="active">竞赛中心</router-link>
           <router-link to="/home/career" class="nav-item" active-class="active">发展方向</router-link>
           <router-link to="/home/assistant" class="nav-item" active-class="active">AI助手</router-link>
