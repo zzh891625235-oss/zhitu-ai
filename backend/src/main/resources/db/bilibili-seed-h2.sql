@@ -70,8 +70,8 @@ MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
 MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
     suitable_major, description, url, sort_order) KEY(title) VALUES
 ('Python 入门 · 黑马程序员全套', '黑马程序员', '编程开发',
- 'Python,爬虫,自动化,编程入门,脚本', 'BEGINNER', '["*"]',
- '全专业通用的 Python 起步课，办公自动化与数据处理都从这开始',
+ 'Python,爬虫,自动化,编程入门,脚本', 'BEGINNER', '["计算机科学与技术","软件工程","人工智能","数据科学与大数据技术","网络工程","信息安全","物联网工程","通信工程","电子信息工程","智能科学与技术","信息管理与信息系统","电子商务"]',
+ '理工科通用的 Python 起步课，数据处理、自动化与后续专业课程都从这里开始',
  'https://search.bilibili.com/all?keyword=黑马程序员Python入门教程', 12);
 
 MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
@@ -109,7 +109,7 @@ MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
 MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
     suitable_major, description, url, sort_order) KEY(title) VALUES
 ('Git 与 GitHub 版本管理实战', 'Geek学院', '编程开发',
- 'Git,GitHub,版本控制,协作,分支', 'BEGINNER', '["*"]',
+ 'Git,GitHub,版本控制,协作,分支', 'BEGINNER', '["计算机科学与技术","软件工程","人工智能","数据科学与大数据技术","网络工程","信息安全","物联网工程","通信工程","电子信息工程"]',
  '课程设计组队协作、代码作业留痕都需要的工程基本功',
  'https://search.bilibili.com/all?keyword=GitGitHub版本控制教程', 17);
 
@@ -214,7 +214,7 @@ MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
 MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
     suitable_major, description, url, sort_order) KEY(title) VALUES
 ('日语入门 · 标准日本语初级', '圆圆的日语教室', '外语提升',
- '日语,五十音,标准日本语,日语入门', 'BEGINNER', '["*"]',
+ '日语,五十音,标准日本语,日语入门', 'BEGINNER', '["英语","商务英语","翻译","日语","德语","法语","西班牙语","俄语","朝鲜语","汉语国际教育","国际经济与贸易"]',
  '二外、考研二外、兴趣学习通用起步课',
  'https://search.bilibili.com/all?keyword=标准日本语日语入门', 52);
 
@@ -255,3 +255,35 @@ MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
  '["临床医学","护理学","口腔医学","药学","医学影像学","预防医学","中医学","康复治疗学","麻醉学"]',
  '手绘图讲解剖的传奇课程，医学生期末救命课',
  'https://search.bilibili.com/all?keyword=霍琨系统解剖学', 70);
+
+MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
+    suitable_major, description, url, sort_order) KEY(title) VALUES
+('法考客观题精讲 · 民法刑法', '众合教育', '考研升学',
+ '法考,司法考试,民法,刑法,法律职业资格', 'INTERMEDIATE',
+ '["法学","知识产权","监狱学","政治学与行政学","社会学","社会工作","国际政治","思想政治教育"]',
+ '法考客观题主线精讲，民法刑法两大分值担当，法学生必刷',
+ 'https://search.bilibili.com/all?keyword=法考客观题民法刑法精讲', 71);
+
+MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
+    suitable_major, description, url, sort_order) KEY(title) VALUES
+('申论与公文写作 · 系统课', '粉笔公考', '职场技能',
+ '申论,公文写作,考公,行测,公务员', 'BEGINNER',
+ '["法学","汉语言文学","行政管理","公共事业管理","政治学与行政学","思想政治教育","社会学","新闻学"]',
+ '考公申论与机关公文写作一站式，文科生体制内就业必备',
+ 'https://search.bilibili.com/all?keyword=申论公文写作系统课', 72);
+
+MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
+    suitable_major, description, url, sort_order) KEY(title) VALUES
+('心理学导论 · 普通心理学', '心理学陈老师', '大学基础课',
+ '心理学,普通心理学,心理学导论,认知,情绪', 'BEGINNER',
+ '["心理学","应用心理学","教育学","学前教育","小学教育","社会工作","护理学"]',
+ '心理学入门第一课，考研312与教资心理学都从这里起步',
+ 'https://search.bilibili.com/all?keyword=普通心理学考研', 73);
+
+MERGE INTO bilibili_resource (title, uploader, category, keywords, difficulty,
+    suitable_major, description, url, sort_order) KEY(title) VALUES
+('中国古代文学史 · 袁行霈版', '文学考研阿甘', '大学基础课',
+ '古代文学,文学史,袁行霈,先秦文学,唐宋文学', 'INTERMEDIATE',
+ '["汉语言文学","汉语国际教育","新闻学","广告学","编辑出版学","秘书学","戏剧影视文学"]',
+ '中文系核心课，考研文学史主线，把朝代脉络与作品串成一条线',
+ 'https://search.bilibili.com/all?keyword=中国古代文学史袁行霈', 74);

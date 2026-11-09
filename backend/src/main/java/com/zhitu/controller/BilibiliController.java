@@ -104,17 +104,28 @@ public class BilibiliController {
         for (BilibiliResource r : all) {
             int score;
             String reason;
-            MatchLevel level = majorName == null ? null
-                    : CompetitionMajorMatcher.matchLevel(r.getSuitableMajor(), majorName);
-            if (level == MatchLevel.EXACT) {
-                score = 100;
-                reason = "与你的专业「" + majorName + "」直接对口";
-            } else if (level == MatchLevel.RELATED) {
-                score = 80;
-                reason = "与你所在专业方向相关，学完即加分";
-            } else {
+            if (majorName == null) {
+                // 尚未完善档案：只推荐真正面向所有专业（suitable_major 含 "*"）的课程
+                if (!CompetitionMajorMatcher.isOpenToAll(r.getSuitableMajor())) continue;
                 score = 60;
                 reason = "大学生通用技能，任何专业都建议掌握";
+            } else {
+                MatchLevel level = CompetitionMajorMatcher.matchLevel(r.getSuitableMajor(), majorName);
+                if (level == MatchLevel.EXACT) {
+                    score = 100;
+                    reason = "与你的专业「" + majorName + "」直接对口";
+                } else if (level == MatchLevel.RELATED) {
+                    score = 80;
+                    reason = "与你所在专业方向相关，学完即加分";
+                } else if (level == MatchLevel.OPEN) {
+                    score = 60;
+                    reason = "大学生通用技能，任何专业都建议掌握";
+                } else {
+                    // level == null：这门课与当前专业完全不对口（例如 C语言之于口腔医学）。
+                    // 以前这里错误地落进「通用技能」分支给 60 分，导致换到任何专业后，
+                    // 其他专业的课程都还挂在推荐里，看起来「B站课程没变」。直接跳过。
+                    continue;
+                }
             }
             Map<String, Object> item = toItem(r, reason);
             item.put("score", score);
