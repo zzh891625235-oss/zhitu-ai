@@ -314,7 +314,7 @@ Agent。</p>
 <li>竞赛中心：按专业过滤、对口标记、报名倒计时、详情</li>
 <li>竞赛推荐：按综合评分排序并给出理由</li>
 <li>课程地图：按专业加载课程，可视化学习进度</li>
-<li>B站课堂：32 门精选公开课按专业匹配推荐，匹配分数与理由可见，链接直达
+<li>B站课堂：41 门精选公开课按专业匹配推荐，匹配分数与理由可见，链接直达
 B 站</li>
 <li>成长助手：五种模式（通用 / 学习 / 职业 / 竞赛 /
 面试），流式输出，工具轨迹可视化，语音输入与朗读</li>
@@ -620,7 +620,7 @@ false，后续直接走规则编排，避免每条消息都白白多打一次网
 </tr>
 <tr>
 <td><code>search_bilibili_courses</code></td>
-<td>B 站公开课资源库（32 门）</td>
+<td>B 站公开课资源库（41 门）</td>
 <td>“高数去哪学”、“推荐个 Python 入门课”</td>
 </tr>
 <tr>
@@ -658,10 +658,11 @@ false，后续直接走规则编排，避免每条消息都白白多打一次网
 </ul>
 <p><code>search_bilibili_courses</code> 是第 9
 个工具，服务于”学习资源闭环”：课程地图告诉学生<strong>该学什么</strong>，B
-站工具告诉学生<strong>去哪学</strong>。它检索平台人工梳理的 32
+站工具告诉学生<strong>去哪学</strong>。它检索平台人工梳理的 41
 门公开课（标题 / UP 主 / 难度 / 推荐理由 /
 链接），支持关键词模糊命中（标题、UP 主、keywords
-三字段），无关键词时按学生专业返回对口推荐。返回的链接会出现在「查看依据」卡片中可点击溯源——AI
+三字段），无关键词时按学生专业返回对口推荐（与页面推荐共用
+<code>CourseMajorRelevance</code>）。返回的链接会出现在「查看依据」卡片中可点击溯源——AI
 推荐的课程不是模型记忆里的编号，而是资源库中真实存在的条目。</p>
 <h3 id="双引擎与降级">4.3.3 双引擎与降级</h3>
 <pre><code>               ┌──────── 大模型可用 ────────►  LLM_DRIVEN
@@ -993,13 +994,18 @@ N 处说法未在资料库中命中，请自行核实”。</p>
 <h2 id="b站课堂学习资源闭环">5.8 B站课堂（学习资源闭环）</h2>
 <p>校内课程地图回答”该学什么”，B站课堂回答”去哪学”：</p>
 <ul>
-<li><strong>资源库</strong>：32 门大学生口碑公开课，覆盖大学基础课 /
+<li><strong>资源库</strong>：41 门大学生口碑公开课，覆盖大学基础课 /
 编程开发 / 数据与AI / 设计创作 / 职场技能 / 外语提升 /
 考研升学七大类，人工梳理标题、UP 主、难度、推荐理由与适合专业映射；</li>
-<li><strong>推荐引擎</strong>：与竞赛推荐复用同一套
-<code>CompetitionMajorMatcher</code> 三级匹配——专业精确对口 100
-分、同方向相关 80 分、全专业通用 60 分，每个分类最多出 4
-条保证多样性，每条推荐展示分数与理由；</li>
+<li><strong>推荐引擎</strong>：独立自研的
+<code>CourseMajorRelevance</code>——精确对口 100 分、近亲专业 80
+分、<code>suitable_major</code> 含 <code>*</code> 的真通用课 60
+分，其余一律跳过；每个分类最多出 4
+条保证多样性，每条推荐展示分数与理由。<strong>刻意不复用竞赛的
+<code>CompetitionMajorMatcher</code></strong>：竞赛按 19
+个学科大类匹配是合理的，但「理科基础类」把 心理/数学/统计
+归为一类，套到课程上会把机器学习推给心理学专业。课程推荐改为名字层面的近亲判定（如「应用心理学」之于「心理学」），宁可少推不可错推；页面与
+Agent 工具共用此类，避免两处结论矛盾；</li>
 <li><strong>链接策略</strong>：存”课程名 + UP 主”的 B
 站搜索直达链接而非固定 BV
 号，规避视频下架死链，长期稳定命中正版课程页；</li>
@@ -1008,8 +1014,9 @@ N 处说法未在资料库中命中，请自行核实”。</p>
 助手回答”去哪学”时引用真实课程条目，链接进入「查看依据」可追溯；</li>
 <li><strong>实现</strong>：<code>BilibiliResource</code> 实体 +
 <code>BilibiliController</code>（资源列表 / 分类统计 /
-个性化推荐三接口）+ <code>Bilibili.vue</code> 页面，配套 4
-个单元测试。</li>
+个性化推荐三接口）+ <code>Bilibili.vue</code> 页面，配套 12
+个单元测试（工具 5 项 + 相关度规则 7 项）；心理学、应用心理学补入 5
+门专业核心课，避免该专业只能看到通用课。</li>
 </ul>
 <div class="pagebreak">
 
@@ -1017,7 +1024,7 @@ N 处说法未在资料库中命中，请自行核实”。</p>
 <h1 id="第六章-测试与部署">第六章 测试与部署</h1>
 <h2 id="测试">6.1 测试</h2>
 <div class="sourceCode" id="cb10"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> backend  <span class="kw">&amp;&amp;</span> <span class="ex">mvn</span> test     <span class="co"># JUnit5：98 个用例，覆盖专业方向、Prompt 构造、JWT、AI 护栏、RAG、Agent 运行时、限流器、B站资源工具</span></span>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> backend  <span class="kw">&amp;&amp;</span> <span class="ex">mvn</span> test     <span class="co"># JUnit5：109 个用例，覆盖专业方向、Prompt 构造、JWT、AI 护栏、RAG、Agent 运行时、限流器、B站资源工具、课程专业相关度、换专业数据清理</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> frontend <span class="kw">&amp;&amp;</span> <span class="ex">npm</span> test     <span class="co"># Node test runner：Markdown 渲染等纯函数</span></span></code></pre></div>
 <h3 id="关键验证结果">关键验证结果</h3>
 <table>
@@ -1034,8 +1041,9 @@ class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href=
 <tbody>
 <tr>
 <td>单元测试</td>
-<td>98 个全部通过（含 AI 护栏 17 项、RAG 检索 9 项、Agent 运行时 5
-项、限流器 6 项、B站资源工具 4 项）</td>
+<td>109 个全部通过（含 AI 护栏 17 项、RAG 检索 9 项、Agent 运行时 5
+项、限流器 6 项、B站资源工具 5 项、课程专业相关度 7 项、换专业清理 3
+项）</td>
 </tr>
 <tr>
 <td>175 个专业的竞赛对口数</td>
@@ -1188,7 +1196,7 @@ TP/AP 分离或只读副本时，把工具查询路由到只读节点即可，�
 </ol>
 <h3 id="已验证的事实">已验证的事实</h3>
 <ul>
-<li>H2 演示档与 MySQL 生产档的 SQL 均经过 98
+<li>H2 演示档与 MySQL 生产档的 SQL 均经过 109
 个单元测试与两轮真实部署验证；</li>
 <li>竞赛/B站资源等种子数据采用幂等 upsert（H2 <code>MERGE</code> / MySQL
 <code>ON DUPLICATE KEY UPDATE</code>），两种语法各自经过脚本生成与实测，可在任意档位重复执行；</li>

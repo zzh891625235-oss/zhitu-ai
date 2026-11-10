@@ -149,3 +149,23 @@ ON DUPLICATE KEY UPDATE uploader=VALUES(uploader), category=VALUES(category), ke
 INSERT INTO bilibili_resource (title, uploader, category, keywords, difficulty, suitable_major, description, url, sort_order)
 VALUES ('中国古代文学史 · 袁行霈版', '文学考研阿甘', '大学基础课', '古代文学,文学史,袁行霈,先秦文学,唐宋文学', 'INTERMEDIATE', '["汉语言文学","汉语国际教育","新闻学","广告学","编辑出版学","秘书学","戏剧影视文学"]', '中文系核心课，考研文学史主线，把朝代脉络与作品串成一条线', 'https://search.bilibili.com/all?keyword=中国古代文学史袁行霈', 74)
 ON DUPLICATE KEY UPDATE uploader=VALUES(uploader), category=VALUES(category), keywords=VALUES(keywords), difficulty=VALUES(difficulty), suitable_major=VALUES(suitable_major), description=VALUES(description), url=VALUES(url), sort_order=VALUES(sort_order);
+
+INSERT INTO bilibili_resource (title, uploader, category, keywords, difficulty, suitable_major, description, url, sort_order)
+VALUES ('实验心理学 · 心理统计与 SPSS 实操', '心理学考研小甜', '大学基础课', '实验心理学,心理统计,SPSS,方差分析,实验设计', 'INTERMEDIATE', '["心理学","应用心理学","教育学","学前教育","社会工作"]', '心理学专业最难过的一关：从实验设计到方差分析，用 SPSS 跑通一份完整实验报告', 'https://search.bilibili.com/all?keyword=实验心理学心理统计SPSS教程', 75)
+ON DUPLICATE KEY UPDATE uploader=VALUES(uploader), category=VALUES(category), keywords=VALUES(keywords), difficulty=VALUES(difficulty), suitable_major=VALUES(suitable_major), description=VALUES(description), url=VALUES(url), sort_order=VALUES(sort_order);
+
+INSERT INTO bilibili_resource (title, uploader, category, keywords, difficulty, suitable_major, description, url, sort_order)
+VALUES ('普通心理学 · 彭聃龄教材精讲（考研312）', '心理学考研晴子', '考研升学', '普通心理学,彭聃龄,考研312,心理学统考,普心', 'INTERMEDIATE', '["心理学","应用心理学","教育学","学前教育","小学教育"]', '心理学考研 312 统考第一门主干课，按彭聃龄教材章节逐讲梳理', 'https://search.bilibili.com/all?keyword=彭聃龄普通心理学考研312', 76)
+ON DUPLICATE KEY UPDATE uploader=VALUES(uploader), category=VALUES(category), keywords=VALUES(keywords), difficulty=VALUES(difficulty), suitable_major=VALUES(suitable_major), description=VALUES(description), url=VALUES(url), sort_order=VALUES(sort_order);
+
+INSERT INTO bilibili_resource (title, uploader, category, keywords, difficulty, suitable_major, description, url, sort_order)
+VALUES ('社会心理学 · 经典理论与实验', '心理学的阿源', '大学基础课', '社会心理学,从众,归因,认知失调,群体,经典实验', 'BEGINNER', '["心理学","应用心理学","社会学","社会工作","教育学"]', '把从众、服从、归因这些经典实验讲透，心理学最贴近生活的一门课', 'https://search.bilibili.com/all?keyword=社会心理学经典实验', 77)
+ON DUPLICATE KEY UPDATE uploader=VALUES(uploader), category=VALUES(category), keywords=VALUES(keywords), difficulty=VALUES(difficulty), suitable_major=VALUES(suitable_major), description=VALUES(description), url=VALUES(url), sort_order=VALUES(sort_order);
+
+INSERT INTO bilibili_resource (title, uploader, category, keywords, difficulty, suitable_major, description, url, sort_order)
+VALUES ('发展心理学 · 毕生发展全程', '心理学考研小甜', '考研升学', '发展心理学,毕生发展,皮亚杰,儿童心理,考研312', 'BEGINNER', '["心理学","应用心理学","学前教育","小学教育","教育学"]', '从婴幼儿到老年的心理发展脉络，教资与心理学考研都会考到', 'https://search.bilibili.com/all?keyword=发展心理学毕生发展', 78)
+ON DUPLICATE KEY UPDATE uploader=VALUES(uploader), category=VALUES(category), keywords=VALUES(keywords), difficulty=VALUES(difficulty), suitable_major=VALUES(suitable_major), description=VALUES(description), url=VALUES(url), sort_order=VALUES(sort_order);
+
+INSERT INTO bilibili_resource (title, uploader, category, keywords, difficulty, suitable_major, description, url, sort_order)
+VALUES ('心理咨询与治疗 · 入门导论', '壹心理课堂', '大学基础课', '心理咨询,心理治疗,倾听技术,个案,助人,咨询伦理', 'INTERMEDIATE', '["心理学","应用心理学","社会工作","护理学","精神医学"]', '咨询伦理、倾听技术与常见流派入门，心理学学生做实践前的第一课', 'https://search.bilibili.com/all?keyword=心理咨询与治疗入门', 79)
+ON DUPLICATE KEY UPDATE uploader=VALUES(uploader), category=VALUES(category), keywords=VALUES(keywords), difficulty=VALUES(difficulty), suitable_major=VALUES(suitable_major), description=VALUES(description), url=VALUES(url), sort_order=VALUES(sort_order);

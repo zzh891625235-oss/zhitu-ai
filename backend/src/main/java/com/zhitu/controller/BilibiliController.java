@@ -1,8 +1,7 @@
 package com.zhitu.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.zhitu.ai.CompetitionMajorMatcher;
-import com.zhitu.ai.CompetitionMajorMatcher.MatchLevel;
+import com.zhitu.ai.CourseMajorRelevance;
 import com.zhitu.dto.Result;
 import com.zhitu.entity.BilibiliResource;
 import com.zhitu.entity.Major;
@@ -20,8 +19,13 @@ import java.util.stream.Collectors;
  * B 站公开课资源推荐。
  *
  * <p>专业学习页的课程地图回答「校内该学什么」，这里回答「校外去哪学」。
- * 推荐逻辑与竞赛推荐同一套匹配规则（CompetitionMajorMatcher）：
- * 精确专业 > 同方向相关 > 全专业通用，三级打分排序，保证推荐理由可解释。
+ * 专业相关度用 {@link CourseMajorRelevance}，按「精确专业 100 > 近亲专业 80 >
+ * 全专业通用 60」三级打分排序，不对口的课程直接跳过。
+ *
+ * <p>注意：这里刻意不复用竞赛的 {@code CompetitionMajorMatcher}。竞赛按学科大类
+ * 匹配是合理的，但那个大类把「心理」「数学」「统计」归到一起，套到课程上会把
+ * 机器学习推给心理学专业。相关度规则的唯一事实来源是 CourseMajorRelevance，
+ * Agent 的 {@code search_bilibili_courses} 工具也调用同一个类。
  */
 @RestController
 @RequestMapping("/api/bilibili")
@@ -80,8 +84,7 @@ public class BilibiliController {
     }
 
     /**
-     * 个性化推荐：按用户专业三级匹配打分。
-     * EXACT（专业对口 100 分）> RELATED（同方向 80 分）> OPEN（通用 60 分），
+     * 个性化推荐：100 分精确对口 > 80 分近亲专业 > 60 分真通用，不对口的直接跳过。
      * 同分按 sort_order（推荐学习顺序）稳定排序，每个分类最多 4 条保证多样性。
      */
     @GetMapping("/recommend")
@@ -102,32 +105,10 @@ public class BilibiliController {
 
         List<Map<String, Object>> scored = new ArrayList<>();
         for (BilibiliResource r : all) {
-            int score;
-            String reason;
-            if (majorName == null) {
-                // 尚未完善档案：只推荐真正面向所有专业（suitable_major 含 "*"）的课程
-                if (!CompetitionMajorMatcher.isOpenToAll(r.getSuitableMajor())) continue;
-                score = 60;
-                reason = "大学生通用技能，任何专业都建议掌握";
-            } else {
-                MatchLevel level = CompetitionMajorMatcher.matchLevel(r.getSuitableMajor(), majorName);
-                if (level == MatchLevel.EXACT) {
-                    score = 100;
-                    reason = "与你的专业「" + majorName + "」直接对口";
-                } else if (level == MatchLevel.RELATED) {
-                    score = 80;
-                    reason = "与你所在专业方向相关，学完即加分";
-                } else if (level == MatchLevel.OPEN) {
-                    score = 60;
-                    reason = "大学生通用技能，任何专业都建议掌握";
-                } else {
-                    // level == null：这门课与当前专业完全不对口（例如 C语言之于口腔医学）。
-                    // 以前这里错误地落进「通用技能」分支给 60 分，导致换到任何专业后，
-                    // 其他专业的课程都还挂在推荐里，看起来「B站课程没变」。直接跳过。
-                    continue;
-                }
-            }
-            Map<String, Object> item = toItem(r, reason);
+            String suitable = r.getSuitableMajor();
+            int score = CourseMajorRelevance.score(suitable, majorName);
+            if (score == CourseMajorRelevance.NOT_MATCH) continue;
+            Map<String, Object> item = toItem(r, CourseMajorRelevance.reason(score, suitable, majorName));
             item.put("score", score);
             scored.add(item);
         }

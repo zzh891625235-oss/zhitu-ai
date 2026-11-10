@@ -1,8 +1,10 @@
 package com.zhitu.ai.agent.tools;
 
 import com.zhitu.entity.BilibiliResource;
+import com.zhitu.entity.Major;
 import com.zhitu.entity.StudentProfile;
 import com.zhitu.mapper.BilibiliResourceMapper;
+import com.zhitu.mapper.MajorMapper;
 import com.zhitu.mapper.StudentProfileMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,22 +22,25 @@ import static org.mockito.Mockito.when;
 /**
  * B 站公开课检索工具测试。
  *
- * 覆盖三条路径：
+ * 覆盖四条路径：
  * 1. 关键词命中（标题 / keywords 任一字段命中都算）；
  * 2. 关键词未命中时给出可降级提示，而不是空数组让模型瞎编；
- * 3. 无关键词时按专业默认推荐，返回真实可点击的链接。
+ * 3. 无关键词时按专业默认推荐，返回真实可点击的链接；
+ * 4. 按专业推荐时过滤掉不对口课程（回归：心理学不该拿到机器学习）。
  */
 class BilibiliToolTest {
 
     private BilibiliResourceMapper resourceMapper;
     private StudentProfileMapper profileMapper;
+    private MajorMapper majorMapper;
     private BilibiliTool tool;
 
     @BeforeEach
     void setUp() {
         resourceMapper = mock(BilibiliResourceMapper.class);
         profileMapper = mock(StudentProfileMapper.class);
-        tool = new BilibiliTool(resourceMapper, profileMapper);
+        majorMapper = mock(MajorMapper.class);
+        tool = new BilibiliTool(resourceMapper, profileMapper, majorMapper);
     }
 
     private BilibiliResource resource(String title, String uploader, String category,
@@ -48,6 +53,7 @@ class BilibiliToolTest {
         r.setUrl(url);
         r.setDifficulty("BEGINNER");
         r.setSortOrder(1);
+        r.setSuitableMajor("[\"*\"]");   // 默认真通用课，便于无关键词分支取到
         return r;
     }
 
@@ -94,6 +100,37 @@ class BilibiliToolTest {
         String out = tool.execute(1L, args("limit", 5));
         assertThat(out).contains("按专业推荐");
         assertThat(out).contains("https://s.bilibili.com/python");
+    }
+
+    @Test
+    void noKeywordFiltersOutUnrelatedCoursesForPsychology() {
+        BilibiliResource ml = resource("机器学习 · 吴恩达公开课", "吴恩达 Andrew Ng", "数据与AI",
+                "机器学习,深度学习", "https://s.bilibili.com/ml");
+        ml.setSuitableMajor("[\"计算机科学与技术\",\"数学与应用数学\",\"应用统计学\"]");
+        BilibiliResource psy = resource("心理学导论 · 普通心理学", "心理学陈老师", "大学基础课",
+                "心理学,普通心理学", "https://s.bilibili.com/psy");
+        psy.setSuitableMajor("[\"心理学\",\"应用心理学\"]");
+        BilibiliResource math = resource("高等数学 · 宋浩老师全程课", "宋浩老师官方", "大学基础课",
+                "高等数学", "https://s.bilibili.com/math");
+
+        List<BilibiliResource> data = new ArrayList<>();
+        data.add(ml);
+        data.add(math);
+        data.add(psy);
+        when(resourceMapper.selectList(any())).thenReturn(data);
+
+        StudentProfile p = new StudentProfile();
+        p.setMajorId(1L);
+        when(profileMapper.selectOne(any())).thenReturn(p);
+        Major major = new Major();
+        major.setName("心理学");
+        when(majorMapper.selectById(1L)).thenReturn(major);
+
+        String out = tool.execute(1L, args("limit", 5));
+        assertThat(out).contains("心理学导论");        // 100 分精确对口
+        assertThat(out).contains("高等数学");          // 60 分真通用
+        assertThat(out).doesNotContain("机器学习");    // 不对口，必须被过滤
+        assertThat(out).contains("按专业推荐");
     }
 
     @Test

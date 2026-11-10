@@ -14,7 +14,7 @@
 
 不需要安装 MySQL、JDK 或 Node.js，双击 《启动智途.bat》，浏览器自动打开 `http://localhost:8080`。
 
-内嵌 H2 数据库，首次启动自动建库并导入种子数据（175 个专业、101 场竞赛、按专业生成的课程地图、32 门 B 站精选公开课）。
+内嵌 H2 数据库，首次启动自动建库并导入种子数据（175 个专业、101 场竞赛、按专业生成的课程地图、41 门 B 站精选公开课）。
 
 ### 2）评审专用账号
 
@@ -62,7 +62,7 @@
 │  Controller → Service → MyBatis-Plus                   │
 │  ┌────────────────  AI 层  ─────────────────┐          │
 │  │ AgentRuntime   ReAct 编排（最多 4 轮）     │          │
-│  │ ToolRegistry   8 个工具 → OpenAI tools    │          │
+│  │ ToolRegistry   9 个工具 → OpenAI tools    │          │
 │  │ RagService     BM25 + 哈希向量混合检索     │          │
 │  │ AiGuard        注入防护/防幻觉/JSON 修复   │          │
 │  │ PromptLibrary  统一人设与诚实性约束        │          │
@@ -76,7 +76,7 @@
    └────────────────┘          └─────────────────────────┘
                     │
            ┌────────▼─────────┐
-           │ MCP Server (node) │  对外暴露同样 8 个工具
+           │ MCP Server (node) │  对外暴露同样 9 个工具
            └───────────────────┘
 ```
 
@@ -125,11 +125,11 @@ ai:
 
 关键实现 `backend/src/main/java/com/zhitu/ai/agent/AgentRuntime.java`：
 
-- 8 个工具转成 OpenAI `tools` 数组交给模型，**是否查、查什么由模型自己决定**；
+- 9 个工具转成 OpenAI `tools` 数组交给模型，**是否查、查什么由模型自己决定**；
 - 工具结果以 JSON 原样回灌进 messages，模型写的每个数字都能追溯到某次工具调用；
 - LLM 不可用时由 `RulePlanner` 接管：关键词规则判断意图 → **仍然执行真实工具** → `OfflineComposer` 合成答案。降级的是「谁选工具」，不是「有没有数据」。
 
-**8 个工具**（`GET /api/agent/tools` 可查看完整 JSON Schema）：
+**9 个工具**（`GET /api/agent/tools` 可查看完整 JSON Schema）：
 
 | 工具 | 读取的数据 | 用途 |
 | --- | --- | --- |
@@ -179,7 +179,7 @@ ai:
 
 - `tools` 数组 → OpenAI Function Calling（内部 Agent 使用）
 - `manifest` → MCP `tools/list` 形态（`GET /api/agent/tools`）
-- `mcp-server/` 是一个**可运行的标准 MCP Server**（Node，stdio JSON-RPC），把同样这 8 个工具暴露给 Claude Desktop、Cursor 等 MCP 客户端。**它不含任何业务逻辑，只做协议转换**，实现与校验规则始终只有后端一份。
+- `mcp-server/` 是一个**可运行的标准 MCP Server**（Node，stdio JSON-RPC），把同样这 9 个工具暴露给 Claude Desktop、Cursor 等 MCP 客户端。**它不含任何业务逻辑，只做协议转换**，实现与校验规则始终只有后端一份。
 
 ```bash
 cd mcp-server
@@ -299,7 +299,7 @@ zhitu-ai/
 ## 九、测试
 
 ```bash
-cd backend  && mvn test      # JUnit5：94 个用例（专业方向、Prompt 构造、JWT、AI 护栏、RAG、Agent 运行时、限流器）
+cd backend  && mvn test      # JUnit5：109 个用例（专业方向、Prompt 构造、JWT、AI 护栏、RAG、Agent 运行时、限流器、B站资源、课程专业相关度、换专业清理）
 cd frontend && npm test      # Node test runner：Markdown 渲染等纯函数
 ```
 

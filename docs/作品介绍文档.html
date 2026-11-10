@@ -45,8 +45,8 @@ AI WEB 网页开发挑战赛（团队赛）</p>
 动态学习计划 → 竞赛推荐 → B站课程学习 → 简历生成
 </div>
 <div class="meta">
-175 个专业 · 19 个专业方向 · 101 场真实竞赛 · 32 门 B 站精选公开课 ·
-4200+ 知识库片段 · 后端 98 个单元测试全部通过
+175 个专业 · 19 个专业方向 · 101 场真实竞赛 · 41 门 B 站精选公开课 ·
+4200+ 知识库片段 · 后端 109 个单元测试全部通过
 </div>
 </div>
 <h1 id="一项目详情及使用方式">一、项目详情及使用方式</h1>
@@ -83,7 +83,7 @@ Agent</strong>。</p>
 <tr>
 <td>不知道学什么</td>
 <td>九维能力自评 + AI
-画像诊断先看清自己，再按专业方向生成对口的学习路径与 32 门 B
+画像诊断先看清自己，再按专业方向生成对口的学习路径与 41 门 B
 站精选公开课，弱项优先补</td>
 </tr>
 <tr>
@@ -144,10 +144,11 @@ Agent</strong>。</p>
 </tr>
 <tr>
 <td>B站课堂</td>
-<td>32 门精选公开课 + 专业匹配推荐</td>
-<td>复用同一套三级匹配器打分（对口 100 / 相关 80 / 通用
-60），每条推荐给出匹配理由；Agent 工具
-<code>search_bilibili_courses</code> 让 AI
+<td>41 门精选公开课 + 严格专业匹配推荐</td>
+<td>独立的 <code>CourseMajorRelevance</code> 相关度规则（精确对口 100 /
+近亲专业 80 / 真通用
+60），不对口课程一律不推，避免学科大类过宽造成错配；每条推荐给出可核对的理由；Agent
+工具 <code>search_bilibili_courses</code> 让 AI
 回答”去哪学”时引用真实链接</td>
 </tr>
 <tr>
@@ -209,10 +210,10 @@ Key 的环境下也能完整体验全部功能，不存在功能阉割。</li>
 <p><strong>亮点四：学习资源闭环——校内课表 + 校外 B 站公开课。</strong>
 专业学习页的”知识地图”回答<strong>该学什么</strong>（3900+
 门课程、按学期排列的学习路线），新增的
-B站课堂回答<strong>去哪学</strong>（32
+B站课堂回答<strong>去哪学</strong>（41
 门大学生口碑公开课：宋浩高数、湖科大计网、王道数据结构、吴恩达机器学习、王佩丰
 Excel
-等）。推荐引擎与竞赛推荐复用同一套三级匹配器，每门课都标注”为什么推荐给你”；AI
+等）。课程推荐采用独立的专业相关度规则（不复用竞赛的学科大类，避免”心理学收到机器学习”这类错配），每门课都标注”为什么推荐给你”；AI
 助手被问”高数去哪学”时调用 <code>search_bilibili_courses</code>
 工具返回真实链接，出现在「查看依据」中可追溯。链接采用”课程名 + UP 主”的
 B 站搜索直达而非固定 BV
@@ -309,14 +310,14 @@ ECharts / 原生 Web Speech API / Canvas 粒子系统</li>
 <li><strong>AI 层</strong>：OpenAI Chat Completions 兼容协议、NDJSON
 流式事件、Function Calling、MCP（Model Context Protocol）</li>
 <li><strong>工程化</strong>：Maven 3.9 / Vite manualChunks 分包 / Docker
-Compose 一键部署 / 98 个单元测试</li>
+Compose 一键部署 / 109 个单元测试</li>
 </ul>
 <h2 id="六个关键设计">4.2 六个关键设计</h2>
 <ol type="1">
 <li><strong>Agent 运行时（AgentRuntime）</strong>：五阶段流水线，NDJSON
 事件流逐帧推送给前端，前端实时渲染阶段提示，用户能看到
 AI”正在做什么”而非干等。</li>
-<li><strong>工具注册表（ToolRegistry）</strong>：8 个工具用一份 JSON
+<li><strong>工具注册表（ToolRegistry）</strong>：9 个工具用一份 JSON
 Schema 同时导出 OpenAI tools 定义与 MCP
 manifest，避免两套定义行为漂移。</li>
 <li><strong>零依赖 RAG（RagService）</strong>：BM25 词频 +
@@ -417,16 +418,20 @@ B站课堂：按专业推荐公开课，每门课标注匹配分数与推荐理�
 <li><strong>三级竞赛匹配器与五档离线评分</strong>：自研匹配与评分算法，解决”推荐顺序错乱”“分数全相同的”问题。</li>
 <li><strong>安全护栏与事实校验</strong>：注入拦截、脱敏、LCS
 防幻觉校验、JSON 自修复，自研。</li>
-<li><strong>B 站公开课资源库</strong>：32
+<li><strong>B 站公开课资源库</strong>：41
 门课程的搜集、分类、专业映射（suitable_major
-JSON）与”搜索直达”链接策略为团队人工梳理与设计，推荐引擎复用自研三级匹配器。</li>
+JSON）与”搜索直达”链接策略为团队人工梳理与设计；推荐引擎为针对课程场景自研的
+<code>CourseMajorRelevance</code>，页面推荐与 Agent
+工具共用同一份规则。</li>
 <li><strong>前端动态知识网络背景</strong>：Canvas
 粒子系统自研，非现成组件。</li>
 <li><strong>MCP Server</strong>：独立 Node.js 实现，可运行、可对接标准
 MCP 客户端。</li>
 <li><strong>多轮测试中发现并修复的问题</strong>：换专业后旧方向自评残留污染画像（已加显式清理
 +
-单元测试）；外语专业错配到汉语言文学课程（新增外语类方向，补充英语/商务英语/日语断言）。</li>
+单元测试）；外语专业错配到汉语言文学课程（新增外语类方向，补充英语/商务英语/日语断言）；B站推荐复用竞赛学科大类导致心理学专业收到机器学习课程（改为名字级近亲判定
++ 7 项回归测试）；换专业后旧画像/规划/打卡残留（saveProfile 统一清理 + 3
+项测试）。</li>
 </ol>
 <p>除 Spring Boot / Vue 3 / Element Plus / ECharts
 等业界通用开源框架外，业务代码与 AI 层均为原创，未使用任何”开箱即用”的

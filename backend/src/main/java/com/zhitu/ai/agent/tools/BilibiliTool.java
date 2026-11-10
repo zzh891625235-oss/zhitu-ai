@@ -1,11 +1,14 @@
 package com.zhitu.ai.agent.tools;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zhitu.ai.CourseMajorRelevance;
 import com.zhitu.ai.agent.JsonTool;
 import com.zhitu.ai.agent.ToolSchemas;
 import com.zhitu.entity.BilibiliResource;
+import com.zhitu.entity.Major;
 import com.zhitu.entity.StudentProfile;
 import com.zhitu.mapper.BilibiliResourceMapper;
+import com.zhitu.mapper.MajorMapper;
 import com.zhitu.mapper.StudentProfileMapper;
 import org.springframework.stereotype.Component;
 
@@ -14,19 +17,26 @@ import java.util.*;
 /**
  * 检索 B 站公开课学习资源。
  *
- * 这个工具回答的是「这门课 / 这个技能去哪学」——AI 助手推荐学习路径时
+ * <p>这个工具回答的是「这门课 / 这个技能去哪学」——AI 助手推荐学习路径时
  * 调用它拿到真实可点击的 B 站课程链接，链接出现在「查看依据」里可追溯，
  * 与整个项目「每个建议都能找到出处」的定位一致。
+ *
+ * <p>不传 keyword 时按学生专业推荐，规则与页面「按你的专业推荐」共用
+ * {@link CourseMajorRelevance}，保证 AI 助手和页面不会给出互相矛盾的建议。
  */
 @Component
 public class BilibiliTool extends JsonTool {
 
     private final BilibiliResourceMapper resourceMapper;
     private final StudentProfileMapper profileMapper;
+    private final MajorMapper majorMapper;
 
-    public BilibiliTool(BilibiliResourceMapper resourceMapper, StudentProfileMapper profileMapper) {
+    public BilibiliTool(BilibiliResourceMapper resourceMapper,
+                        StudentProfileMapper profileMapper,
+                        MajorMapper majorMapper) {
         this.resourceMapper = resourceMapper;
         this.profileMapper = profileMapper;
+        this.majorMapper = majorMapper;
     }
 
     @Override
@@ -60,7 +70,7 @@ public class BilibiliTool extends JsonTool {
 
         Map<String, Object> out = new LinkedHashMap<>();
 
-        // 有关键词：标题 / UP 主 / keywords 三字段模糊检索
+        // 有关键词：标题 / UP 主 / keywords 三字段模糊检索（学生主动搜索，不按专业过滤）
         if (!keyword.isEmpty()) {
             String kw = keyword.toLowerCase();
             List<Map<String, Object>> hits = new ArrayList<>();
@@ -79,13 +89,33 @@ public class BilibiliTool extends JsonTool {
             return json(out);
         }
 
-        // 无关键词：按学生专业对口排序返回
+        // 无关键词：按学生专业打分排序，与页面推荐同一套规则
         StudentProfile p = profileMapper.selectOne(
                 new LambdaQueryWrapper<StudentProfile>().eq(StudentProfile::getUserId, userId));
+        String majorName = null;
+        if (p != null && p.getMajorId() != null) {
+            Major major = majorMapper.selectById(p.getMajorId());
+            if (major != null) majorName = major.getName();
+        }
+
+        List<Map<String, Object>> ranked = new ArrayList<>();
+        for (BilibiliResource r : all) {
+            String suitable = r.getSuitableMajor();
+            int score = CourseMajorRelevance.score(suitable, majorName);
+            if (score == CourseMajorRelevance.NOT_MATCH) continue;
+            Map<String, Object> m = item(r);
+            m.put("score", score);
+            m.put("matchReason", CourseMajorRelevance.reason(score, suitable, majorName));
+            ranked.add(m);
+        }
+        // 稳定排序：同分保留 sort_order 的学习顺序
+        ranked.sort((a, b) -> Integer.compare((int) b.get("score"), (int) a.get("score")));
+
         out.put("query", "(按专业推荐)");
-        out.put("hint", "以下为 B 站公开课资源，链接可直接给到学生");
-        out.put("courses", all.subList(0, Math.min(limit, all.size())).stream().map(this::item)
-                .collect(java.util.stream.Collectors.toList()));
+        out.put("majorName", majorName);
+        out.put("hint", "以下为按专业相关度排序的 B 站公开课资源，链接可直接给到学生");
+        out.put("found", Math.min(limit, ranked.size()));
+        out.put("courses", ranked.subList(0, Math.min(limit, ranked.size())));
         return json(out);
     }
 
