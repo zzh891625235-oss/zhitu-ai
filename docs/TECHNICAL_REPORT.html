@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc 3.10.2" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="智途AI 参赛团队" />
-  <title>智途AI 技术文档</title>
+  <title>智途AI · 技术文档</title>
   <style>
     /* Default styles provided by pandoc.
     ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -98,7 +98,7 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">智途AI 技术文档</h1>
+<h1 class="title">智途AI · 技术文档</h1>
 <p class="subtitle">技术文档</p>
 <p class="author">智途AI 参赛团队</p>
 <p class="date">2026 年 10 月</p>
@@ -314,7 +314,8 @@ Agent。</p>
 <li>竞赛中心：按专业过滤、对口标记、报名倒计时、详情</li>
 <li>竞赛推荐：按综合评分排序并给出理由</li>
 <li>课程地图：按专业加载课程，可视化学习进度</li>
-<li>B站课堂：41 门精选公开课按专业匹配推荐，匹配分数与理由可见，链接直达
+<li>B站课堂：262 门公开课覆盖全部 175
+个专业，分层精准推荐（对口课优先、近亲≤3、通用≤2），匹配分数与理由可见，链接直达
 B 站</li>
 <li>成长助手：五种模式（通用 / 学习 / 职业 / 竞赛 /
 面试），流式输出，工具轨迹可视化，语音输入与朗读</li>
@@ -620,7 +621,7 @@ false，后续直接走规则编排，避免每条消息都白白多打一次网
 </tr>
 <tr>
 <td><code>search_bilibili_courses</code></td>
-<td>B 站公开课资源库（41 门）</td>
+<td>B 站公开课资源库（262 门）</td>
 <td>“高数去哪学”、“推荐个 Python 入门课”</td>
 </tr>
 <tr>
@@ -658,11 +659,12 @@ false，后续直接走规则编排，避免每条消息都白白多打一次网
 </ul>
 <p><code>search_bilibili_courses</code> 是第 9
 个工具，服务于”学习资源闭环”：课程地图告诉学生<strong>该学什么</strong>，B
-站工具告诉学生<strong>去哪学</strong>。它检索平台人工梳理的 41
-门公开课（标题 / UP 主 / 难度 / 推荐理由 /
-链接），支持关键词模糊命中（标题、UP 主、keywords
+站工具告诉学生<strong>去哪学</strong>。它检索平台人工梳理的 262
+门公开课（标题 / UP 主 / 难度 / 推荐理由 / 链接，覆盖 13 个类别与 175
+个专业），支持关键词模糊命中（标题、UP 主、keywords
 三字段），无关键词时按学生专业返回对口推荐（与页面推荐共用
-<code>CourseMajorRelevance</code>）。返回的链接会出现在「查看依据」卡片中可点击溯源——AI
+<code>CourseMajorRelevance</code> 与
+<code>BilibiliRecommendPolicy</code>，两处给出的课程顺序与层级完全一致）。返回的链接会出现在「查看依据」卡片中可点击溯源——AI
 推荐的课程不是模型记忆里的编号，而是资源库中真实存在的条目。</p>
 <h3 id="双引擎与降级">4.3.3 双引擎与降级</h3>
 <pre><code>               ┌──────── 大模型可用 ────────►  LLM_DRIVEN
@@ -971,6 +973,11 @@ N 处说法未在资料库中命中，请自行核实”。</p>
 <p>竞赛库覆盖 175 个专业，每个专业平均 16.7 场精确对口的赛事（最少 3
 场，最多 30 场）。种子数据使用 <code>MERGE INTO ... KEY(name)</code>
 写入，重复启动不会造成重复数据。</p>
+<p>推荐结果不止于「告诉你报哪个」：列表、详情与推荐接口统一返回
+<code>registrationUrl</code> / <code>registrationChannel</code> /
+<code>registrationLabel</code> / <code>registrationStatus</code> /
+<code>registrationAction</code>
+五个字段，前端据此渲染报名主按钮与状态标签。解析规则见 5.9 节。</p>
 <h2 id="ai-成长助手核心页面">5.5 AI 成长助手（核心页面）</h2>
 <p>五种模式切换，每种模式有不同的人设与快捷提问。<strong>提问列表会根据学生的专业方向动态生成</strong>——不会出现给文科生推荐”讲讲多态”的情况。</p>
 <p>页面上的 Agent 元素：</p>
@@ -981,7 +988,28 @@ N 处说法未在资料库中命中，请自行核实”。</p>
 </ul>
 <h2 id="ai-简历生成">5.6 AI 简历生成</h2>
 <p>汇总学习记录、成长档案、竞赛与技能，生成 A4
-结构化简历，支持直接打印导出 PDF。</p>
+结构化简历。早期版本只有一个 <code>window.print()</code>
+按钮，在深色主题下打印会得到黑底黑字、还带着顶部导航和工具栏，
+“可导出”实际上不可用；作品介绍里写的”在线编辑”也没有对应实现。本次补齐为完整交付链路：</p>
+<ul>
+<li><strong>在线编辑</strong>：生成后可逐字段修改姓名、意向岗位、学校/专业/年级、个人优势与五类清单
+（专业技能、核心课程、项目、竞赛、证书，用「每行一项」编辑）；<code>PUT /api/resume</code>
+落库，刷新后不丢失；</li>
+<li><strong>字段清洗</strong>：服务端只接受 8
+个白名单字段，字符串去控制字符并按长度截断，数组去重、去空、 上限 40
+项。<code>resume.content</code> 是一整列
+JSON，写入任意嵌套结构或超长内容会让下次读取解析失败，
+页面直接退化成一张空白 A4 纸，因此保存前必须收敛结构；</li>
+<li><strong>三种交付方式</strong>：页面保留深色 A4 预览；「打印 / 导出
+PDF」在打印期间给 <code>body</code> 加 <code>resume-print</code>
+标记，配合全局 <code>@media print</code> 切成白底黑字、A4
+分页并隐藏导航与工具栏； 「下载简历文件」生成一份完全独立、内联 A4
+样式、不依赖站点任何 CSS 的 HTML，双击即可打开或另存 PDF；</li>
+<li><strong>异常语义</strong>：未初始化档案时返回 409 业务状态而不是
+500，由前端统一引导到档案初始化（见 5.10）。</li>
+</ul>
+<p><code>ResumeSaveTest</code> 4
+项覆盖白名单、超长截断、控制字符、数组上限与”落库 JSON 可正常读回”。</p>
 <h2 id="课程地图与动态背景">5.7 课程地图与动态背景</h2>
 <ul>
 <li>课程地图按学生真实专业加载，可视化每门课的进度；</li>
@@ -994,37 +1022,214 @@ N 处说法未在资料库中命中，请自行核实”。</p>
 <h2 id="b站课堂学习资源闭环">5.8 B站课堂（学习资源闭环）</h2>
 <p>校内课程地图回答”该学什么”，B站课堂回答”去哪学”：</p>
 <ul>
-<li><strong>资源库</strong>：41 门大学生口碑公开课，覆盖大学基础课 /
-编程开发 / 数据与AI / 设计创作 / 职场技能 / 外语提升 /
-考研升学七大类，人工梳理标题、UP 主、难度、推荐理由与适合专业映射；</li>
-<li><strong>推荐引擎</strong>：独立自研的
-<code>CourseMajorRelevance</code>——精确对口 100 分、近亲专业 80
-分、<code>suitable_major</code> 含 <code>*</code> 的真通用课 60
-分，其余一律跳过；每个分类最多出 4
-条保证多样性，每条推荐展示分数与理由。<strong>刻意不复用竞赛的
+<li><strong>资源库规模与覆盖</strong>：262 门公开课，覆盖 13
+个类别（大学基础课、编程开发、数据与AI、理工专业课、医学专业课、经管专业课、法政教育、人文艺术、农林生命、设计创作、职场技能、外语提升、考研升学）。<strong>175
+个专业全部覆盖，每个专业至少 3 门精确对口课、平均 18.5
+门</strong>，茶学、烟草、监狱学、逻辑学这类冷门专业也不会只看到通用课；</li>
+<li><strong>数据一致性由生成脚本保证</strong>：<code>scripts/gen-bilibili-seed.py</code>
+是 H2 / MySQL 两份种子 SQL 的唯一生成入口。它从
+<code>database/majors.sql</code> 读取 175 个专业字典，用学科门类 /
+专业组标签展开
+<code>suitable_major</code>，<strong>任何字典外的专业名直接报错</strong>。早期手写
+SQL
+里的「应用统计学」「应用心理学」「秘书学」永远无法精确命中，只会被近亲规则蹭成
+80
+分，这正是「推荐不对口」的根源。脚本还校验标题唯一、字段长度与每个专业的对口课数量，并在
+SQL 末尾生成 <code>DELETE ... WHERE title NOT IN (...)</code>
+清理旧条目——老用户不删 <code>data/</code>
+目录，重启即可拿到最新的专业映射；</li>
+<li><strong>贴合度分层</strong>：同为 100
+分的课程也要分主次。<code>sort_order</code>
+按「适配专业数」编码三档：专业核心课（≤20
+个专业）、学科方向课（21~40）、门类公共基础课（&gt;40 或
+<code>*</code>）；<code>CourseMajorRelevance.fitness()</code> 再对「标题
+/
+关键词命中专业核心词」加权（心理学→「心理」、口腔医学→「口腔」、茶学→「茶」）。因此心理学第一屏是普通心理学
+/
+实验心理学，口腔医学第一屏是口腔解剖生理学，而不是高数、大学化学。公共基础课也按真正需要它的专业精确标注：大学化学只给化工
+/ 材料 / 农林医方向，不再挂满整个工学门类；</li>
+<li><strong>推荐位分配</strong>：<code>BilibiliRecommendPolicy</code>
+由页面与 Agent 工具共用——100 分对口课按贴合度严格占满 16
+个推荐位，<strong>不设分类上限</strong>（早期「每类最多 4
+条」的多样性规则反而把高数排到了专业课前面）；对口课不足时 80
+分近亲最多补 3 门、60 分通用最多补 2
+门，且只做补位。宁可少推，不可错推；</li>
+<li><strong>相关度判定</strong>：<code>CourseMajorRelevance</code>
+精确对口 100 / 近亲专业 80 / <code>*</code> 真通用
+60，其余一律跳过。<strong>刻意不复用竞赛的
 <code>CompetitionMajorMatcher</code></strong>：竞赛按 19
 个学科大类匹配是合理的，但「理科基础类」把 心理/数学/统计
-归为一类，套到课程上会把机器学习推给心理学专业。课程推荐改为名字层面的近亲判定（如「应用心理学」之于「心理学」），宁可少推不可错推；页面与
-Agent 工具共用此类，避免两处结论矛盾；</li>
+归为一类，套到课程上会把机器学习推给心理学专业；课程推荐只认名字层面的近亲专业，不做学科大类推断；</li>
 <li><strong>链接策略</strong>：存”课程名 + UP 主”的 B
 站搜索直达链接而非固定 BV
 号，规避视频下架死链，长期稳定命中正版课程页；</li>
 <li><strong>Agent 联动</strong>：<code>search_bilibili_courses</code>
 工具让 AI
 助手回答”去哪学”时引用真实课程条目，链接进入「查看依据」可追溯；</li>
-<li><strong>实现</strong>：<code>BilibiliResource</code> 实体 +
-<code>BilibiliController</code>（资源列表 / 分类统计 /
-个性化推荐三接口）+ <code>Bilibili.vue</code> 页面，配套 12
-个单元测试（工具 5 项 + 相关度规则 7 项）；心理学、应用心理学补入 5
-门专业核心课，避免该专业只能看到通用课。</li>
+<li><strong>实现与测试</strong>：<code>BilibiliResource</code> +
+<code>BilibiliController</code>（资源列表 / 分类统计 / 个性化推荐）+
+<code>Bilibili.vue</code> + <code>BilibiliTool</code>，配套 24
+个单元测试（资源工具 6 项、相关度规则 8 项、推荐位策略 5 项、种子覆盖率
+3 项、教资课错配 2 项）。覆盖率测试直接读取生成的 H2 种子 SQL，断言 175
+个专业名 100% 属于字典、每个专业至少 3 门对口课、编程课不会蹭到心理学 /
+口腔医学。</li>
 </ul>
+<h2 id="竞赛报名入口直达">5.9 竞赛报名入口直达</h2>
+<h3 id="问题官网不等于报名页">问题：官网不等于报名页</h3>
+<p>竞赛表原本已有
+<code>official_url</code>，页面也提供「官网」文字按钮，但学生点进去常常是主办单位门户首页：</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>赛事</th>
+<th>库里的 official_url</th>
+<th>实际报名地址</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>蓝桥杯</td>
+<td><code>https://www.lanqiao.cn/</code></td>
+<td><code>https://dasai.lanqiao.cn/</code>（大赛报名系统）</td>
+</tr>
+<tr>
+<td>传智杯</td>
+<td><code>https://www.itcast.cn/</code></td>
+<td><code>https://www.boxuegu.com/match/</code>（大赛报名通道）</td>
+</tr>
+<tr>
+<td>中国大学生计算机设计大赛</td>
+<td><code>https://www.jsjds.com.cn/</code></td>
+<td><code>https://jsjds.blcu.edu.cn/</code>（国赛官网）</td>
+</tr>
+</tbody>
+</table>
+<p>更普遍的情况是：学科竞赛多由学校 /
+学院统一组织报名，个人在官网上根本找不到提交入口，需要看本校通知。
+因此「报名入口」必须是独立于官网的一层能力。</p>
+<h3 id="三类渠道与兜底策略">三类渠道与兜底策略</h3>
+<p><code>CompetitionRegistrationLink</code>
+按赛事名在运行时解析，输出统一结构：</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>渠道</th>
+<th>判定</th>
+<th>直达目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ONLINE</code></td>
+<td>白名单内有独立在线报名系统</td>
+<td>官方报名平台（16 个稳定域名，已核实）</td>
+</tr>
+<tr>
+<td><code>NOTICE</code></td>
+<td>官网常年发布报名通知</td>
+<td>官网通知页</td>
+</tr>
+<tr>
+<td><code>SCHOOL</code></td>
+<td>其余赛事（占多数）</td>
+<td>「赛事名 + 报名通知 + 校内选拔」检索结果，一次点击直达通知列表</td>
+</tr>
+</tbody>
+</table>
+<p>白名单只收录不带届数 /
+年份的<strong>稳定域名</strong>（例如挑战杯每年启用
+<code>2025.tiaozhanbei.net</code>、<code>2026.tiaozhanbei.net</code>，
+因此统一指向主站
+<code>tiaozhanbei.net</code>），避免某届赛事结束后链接失效。检索类链接的中文关键词经
+<code>URLEncoder</code> 编码，
+不含空格与未编码汉字，浏览器可直接打开。任何情况下仍保留
+<code>official_url</code> 作为「官网」次入口，两个链接互相兜底。</p>
+<h3 id="为什么不落库">为什么不落库</h3>
+<p>报名系统地址每年都可能变化。若把 <code>registration_url</code>
+写进种子数据，升级时必须同步 H2 / MySQL 两份 SQL， 且老用户的
+<code>data/</code> 目录会长期留着过期链接。这里把五个报名字段全部做成
+<code>@TableField(exist = false)</code> 计算字段，由
+<code>apply(Competition)</code> /
+<code>decorate(Map, Competition)</code> 在返回前统一填充：</p>
+<ul>
+<li><strong>零表结构变更</strong>：不动
+schema、不动种子、不需要用户删库重建，H2 / MySQL /
+分布式数据库三档行为一致；</li>
+<li><strong>一处维护</strong>：新增或修改赛事报名入口只需改白名单常量；</li>
+<li><strong>全链路一致</strong>：竞赛列表、详情、AI 推荐、Agent 工具
+<code>find_competitions</code>、离线编排 <code>OfflineComposer</code>、
+RAG
+语料块都调用同一个策略类，不会出现「页面说官方在线报名、助手说去学校问」的分裂。</li>
+</ul>
+<h3 id="前端与交互">前端与交互</h3>
+<ul>
+<li>竞赛中心顶部横幅显示「N
+场赛事正在报名」，提供「只看报名中」开关；首页「竞赛报名」快捷入口 通过
+<code>/home/competitions?register=1</code> 直接落到筛选后的列表；</li>
+<li>每张卡片与 AI
+推荐卡片把原来的「官网」小按钮升级为<strong>报名主按钮</strong>：<code>ONLINE</code>
+显示「立即报名」， <code>SCHOOL</code>
+显示「校内报名指引」，<code>UPCOMING</code>
+显示「查看报名安排」，<code>CLOSED</code>
+显示「报名已结束」（仍可点开查下一届通知）；
+按钮下方标注渠道说明，避免学生误以为点一下就直接提交报名表；</li>
+<li>卡片增加「报名中 / 已截止 /
+即将开放」状态标签；<code>renderMarkdown</code> 增加 URL 自动链接化， AI
+助手回答里的报名入口可直接点击（新窗口打开，<code>rel=noopener noreferrer</code>）。</li>
+</ul>
+<h3 id="验证">验证</h3>
+<p><code>CompetitionRegistrationLinkTest</code> 9
+项覆盖白名单命中、校内检索兜底、通知类赛事、状态边界、按钮文案、 实体与
+Map 装饰、不落库约束（反射检查
+<code>@TableField(exist=false)</code>）、以及<strong>读取生成后的 H2
+种子 SQL 逐场校验 101
+场赛事都有可点链接</strong>。全新库端到端验证：101/101
+场返回完整报名字段， 46 场状态为「报名中」，详情与推荐接口字段一致；4
+个官方报名入口实测 HTTP 200； 竞赛页在 1440 / 1280 / 1100 / 900 / 640
+五个视口下零重叠、零溢出。</p>
+<h2 id="首次使用引导与异常边界">5.10 首次使用引导与异常边界</h2>
+<p>评委常用刚注册的账号直接点各个模块，这条路径以前体验很差：新用户没有档案，
+点「生成四年规划」会弹
+<code>服务器内部错误: 请先完善个人档案</code>，点「生成 AI 简历」更会把
+Java 空指针原文
+<code>Cannot invoke "...getMajorId()" because "p" is null</code>
+直接展示在浏览器里；
+专业知识地图则显示「课程数据正在补充中，敬请期待」，容易被误认为课程库根本没做完。</p>
+<p>本次把「状态」与「故障」彻底分开：</p>
+<ul>
+<li><strong><code>ProfileNotReadyException</code>（409）</strong>：五年规划、竞赛推荐、学习计划、学生画像、简历生成等
+所有依赖专业/年级的入口统一在方法入口校验，缺档案时抛同一个业务异常。
+<code>GlobalExceptionHandler</code> 对 <code>Exception</code>
+兜底改为「服务端记日志 + 返回稳定通用文案」， <strong>不再把
+<code>e.getMessage()</code>
+拼进响应</strong>；内部堆栈只留在日志里。</li>
+<li><strong>前端统一引导</strong>：<code>request.js</code> 识别 409 +
+档案相关文案，弹出带「去初始化」按钮的确认框 （4
+秒节流，避免并发请求叠弹窗）；各页面 <code>catch</code>
+不再重复弹红色错误。 <code>MainLayout</code>
+在未初始化时于所有模块顶部显示一条可关闭的引导条。</li>
+<li><strong>空状态按原因区分</strong>：课程地图区分「还没选专业」（引导初始化）与「该专业数据补充中」，
+不再让评委误判数据完整性；B站课堂与竞赛中心的公开数据在新账号下依旧可正常浏览。</li>
+</ul>
+<p><code>GlobalExceptionHandlerTest</code> 4 项钉死异常不外泄、409
+可识别、业务文案保留与参数错误映射。</p>
 <div class="pagebreak">
 
 </div>
 <h1 id="第六章-测试与部署">第六章 测试与部署</h1>
 <h2 id="测试">6.1 测试</h2>
 <div class="sourceCode" id="cb10"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> backend  <span class="kw">&amp;&amp;</span> <span class="ex">mvn</span> test     <span class="co"># JUnit5：109 个用例，覆盖专业方向、Prompt 构造、JWT、AI 护栏、RAG、Agent 运行时、限流器、B站资源工具、课程专业相关度、换专业数据清理</span></span>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> backend  <span class="kw">&amp;&amp;</span> <span class="ex">mvn</span> test     <span class="co"># JUnit5：138 个用例，覆盖专业方向、Prompt 构造、JWT、AI 护栏、RAG、Agent 运行时、限流器、B站资源工具、课程专业相关度、推荐位分层、种子专业覆盖率、换专业数据清理、竞赛报名入口、异常处理、简历保存清洗、教资课错配</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> frontend <span class="kw">&amp;&amp;</span> <span class="ex">npm</span> test     <span class="co"># Node test runner：Markdown 渲染等纯函数</span></span></code></pre></div>
 <h3 id="关键验证结果">关键验证结果</h3>
 <table>
@@ -1041,9 +1246,10 @@ class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href=
 <tbody>
 <tr>
 <td>单元测试</td>
-<td>109 个全部通过（含 AI 护栏 17 项、RAG 检索 9 项、Agent 运行时 5
-项、限流器 6 项、B站资源工具 5 项、课程专业相关度 7 项、换专业清理 3
-项）</td>
+<td>138 个全部通过（含 AI 护栏 17 项、RAG 检索 9 项、Agent 运行时 5
+项、限流器 6 项、B站资源工具 6 项、课程专业相关度 8 项、推荐位分层策略 5
+项、种子专业覆盖率 3 项、换专业清理 3 项、竞赛报名入口策略 9
+项、异常处理 4 项、简历保存清洗 4 项、教资课错配 2 项）</td>
 </tr>
 <tr>
 <td>175 个专业的竞赛对口数</td>
@@ -1053,6 +1259,11 @@ class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href=
 <td>推荐偏差修正</td>
 <td>统计学不再被推荐地质类赛事；天文学推荐为天文创新 / 挑战杯 /
 数学竞赛</td>
+</tr>
+<tr>
+<td>竞赛报名入口</td>
+<td>全新库 101/101 场返回完整报名字段；46 场「报名中」；列表 / 详情 /
+推荐 / Agent 工具一致</td>
 </tr>
 <tr>
 <td>Agent 工具编排（离线）</td>
@@ -1196,7 +1407,7 @@ TP/AP 分离或只读副本时，把工具查询路由到只读节点即可，�
 </ol>
 <h3 id="已验证的事实">已验证的事实</h3>
 <ul>
-<li>H2 演示档与 MySQL 生产档的 SQL 均经过 109
+<li>H2 演示档与 MySQL 生产档的 SQL 均经过 138
 个单元测试与两轮真实部署验证；</li>
 <li>竞赛/B站资源等种子数据采用幂等 upsert（H2 <code>MERGE</code> / MySQL
 <code>ON DUPLICATE KEY UPDATE</code>），两种语法各自经过脚本生成与实测，可在任意档位重复执行；</li>
@@ -1335,7 +1546,8 @@ AI
 <tr>
 <td>GET</td>
 <td><code>/api/competitions</code></td>
-<td>竞赛列表（支持 <code>onlyMatch</code> 按专业过滤）</td>
+<td>竞赛列表（支持 <code>onlyMatch</code>
+按专业过滤，返回报名入口字段）</td>
 </tr>
 <tr>
 <td>GET</td>

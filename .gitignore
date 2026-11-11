@@ -48,3 +48,14 @@ backend/data/
 
 # === 文档中间产物（PDF 由 Markdown 生成）===
 docs/report.html
+
+# === 交付/运行产物（不进公开仓库）===
+*.lock.db
+*.bundle
+*.zip
+*.mp4
+/智途AI-便携版/
+/便携版-双击即用/
+frontend/.vite/
+backend/data/
+data/

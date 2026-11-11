@@ -4,7 +4,7 @@
 >
 > 2026 第九届传智杯 · AI WEB 网页开发挑战赛（智慧教育方向）参赛作品
 
-**一句话概括 AI 能力**：本项目的 AI 不是「接了 API 的聊天框」，而是一个**会自己查学生数据、自己查知识库、并且把依据摆给你看的成长 Agent**——它通过 Function Calling 真实调用 8 个工具读取你的档案、课程、竞赛、打卡记录，用 RAG 检索本地知识库做事实支撑，最后把「引用来源 + 工具调用轨迹 + 事实校验结果」一并展示出来供你核对。
+**一句话概括 AI 能力**：本项目的 AI 不是「接了 API 的聊天框」，而是一个**会自己查学生数据、自己查知识库、并且把依据摆给你看的成长 Agent**——它通过 Function Calling 真实调用 9 个工具读取你的档案、课程、竞赛、打卡记录，用 RAG 检索本地知识库做事实支撑，最后把「引用来源 + 工具调用轨迹 + 事实校验结果」一并展示出来供你核对。
 
 ---
 
@@ -12,9 +12,9 @@
 
 ### 1）最省事：便携版（推荐评委使用）
 
-不需要安装 MySQL、JDK 或 Node.js，双击 《启动智途.bat》，浏览器自动打开 `http://localhost:8080`。
+**只需 Java 8+**（8 / 11 / 17 / 21 均已实测，推荐 JDK 17；JRE 亦可），不需要 MySQL、Node.js、Maven、网络或 API Key。完整解压作品包后进入 `便携版-双击即用`，双击 `启动智途AI.bat`（中文乱码时改用同目录纯英文的 `start-en.bat`），浏览器自动打开 `http://localhost:8080`。
 
-内嵌 H2 数据库，首次启动自动建库并导入种子数据（175 个专业、101 场竞赛、按专业生成的课程地图）。
+内嵌 H2 数据库，首次启动自动建库并导入种子数据（175 个专业、101 场竞赛、262 门 B 站公开课、按专业生成的课程地图）；8080 被占用时自动切换 8090~8093。
 
 ### 2）评审专用账号
 
@@ -62,7 +62,7 @@
 │  Controller → Service → MyBatis-Plus                   │
 │  ┌────────────────  AI 层  ─────────────────┐          │
 │  │ AgentRuntime   ReAct 编排（最多 4 轮）     │          │
-│  │ ToolRegistry   8 个工具 → OpenAI tools    │          │
+│  │ ToolRegistry   9 个工具 → OpenAI tools    │          │
 │  │ RagService     BM25 + 哈希向量混合检索     │          │
 │  │ AiGuard        注入防护/防幻觉/JSON 修复   │          │
 │  │ PromptLibrary  统一人设与诚实性约束        │          │
@@ -76,7 +76,7 @@
    └────────────────┘          └─────────────────────────┘
                     │
            ┌────────▼─────────┐
-           │ MCP Server (node) │  对外暴露同样 8 个工具
+           │ MCP Server (node) │  对外暴露同样 9 个工具
            └───────────────────┘
 ```
 
@@ -125,11 +125,11 @@ ai:
 
 关键实现 `backend/src/main/java/com/zhitu/ai/agent/AgentRuntime.java`：
 
-- 8 个工具转成 OpenAI `tools` 数组交给模型，**是否查、查什么由模型自己决定**；
+- 9 个工具转成 OpenAI `tools` 数组交给模型，**是否查、查什么由模型自己决定**；
 - 工具结果以 JSON 原样回灌进 messages，模型写的每个数字都能追溯到某次工具调用；
 - LLM 不可用时由 `RulePlanner` 接管：关键词规则判断意图 → **仍然执行真实工具** → `OfflineComposer` 合成答案。降级的是「谁选工具」，不是「有没有数据」。
 
-**8 个工具**（`GET /api/agent/tools` 可查看完整 JSON Schema）：
+**9 个工具**（`GET /api/agent/tools` 可查看完整 JSON Schema）：
 
 | 工具 | 读取的数据 | 用途 |
 | --- | --- | --- |
@@ -141,6 +141,7 @@ ai:
 | `get_growth_records` | 成长档案 | 简历能写什么 |
 | `search_knowledge_base` | RAG 知识库 | 方法论与流程咨询 |
 | `get_four_year_plan` | 已生成的四年规划 | 保持建议连贯 |
+| `search_bilibili_courses` | B 站公开课库（262 门） | 按专业严格匹配推荐对口课程 |
 
 工具统统**只读**，`userId` 贯穿所有查询——Agent 不能改数据，也看不到别人的数据。
 
@@ -179,7 +180,7 @@ ai:
 
 - `tools` 数组 → OpenAI Function Calling（内部 Agent 使用）
 - `manifest` → MCP `tools/list` 形态（`GET /api/agent/tools`）
-- `mcp-server/` 是一个**可运行的标准 MCP Server**（Node，stdio JSON-RPC），把同样这 8 个工具暴露给 Claude Desktop、Cursor 等 MCP 客户端。**它不含任何业务逻辑，只做协议转换**，实现与校验规则始终只有后端一份。
+- `mcp-server/` 是一个**可运行的标准 MCP Server**（Node，stdio JSON-RPC），把同样这 9 个工具暴露给 Claude Desktop、Cursor 等 MCP 客户端。**它不含任何业务逻辑，只做协议转换**，实现与校验规则始终只有后端一份。
 
 ```bash
 cd mcp-server
@@ -192,7 +193,7 @@ ZHITU_BASE_URL=http://localhost:8080 ZHITU_TOKEN=你的JWT node index.js
 
 ### 方式一：便携版（零安装）
 
-双击 `智途AI-便携版/启动智途.bat`（需 Java 17 运行环境）。
+进入 `便携版-双击即用`，双击 `启动智途AI.bat`（需 Java 8+，推荐 17；中文乱码改用 `start-en.bat`）。也可直接 `java -jar zhitu-ai.jar --spring.profiles.active=demo`。
 
 ### 方式二：源码开发
 
@@ -220,7 +221,7 @@ docker compose up -d --build
 
 ### 环境变量
 
-完整模板见 `.env.example`，核心项：
+完整模板见仓库根目录 [`.env.example`](.env.example)（含全部 19 个变量），完整说明见 [docs/环境配置说明.md](docs/环境配置说明.md)，核心项：
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -255,6 +256,8 @@ zhitu-ai/
 ├── mcp-server/        标准 MCP Server（stdio JSON-RPC）
 ├── database/          DDL + 字典数据 + 演示数据（幂等）
 ├── docs/              API.md · ARCHITECTURE.md · DATABASE.md · DEPLOY.md
+│                      环境配置说明.md · 代码仓库与提交说明.md · GIT_HISTORY.txt
+│                      环境配置说明.md · 代码仓库与提交说明.md · GIT_HISTORY.txt
 └── scripts/           数据库初始化脚本（sh / bat / ps1）
 ```
 
@@ -271,9 +274,15 @@ zhitu-ai/
 | AI 成长助手 | Agent 驱动，工具调用轨迹实时可见，支持语音输入与朗读 |
 | AI 简历生成 | 汇总学习记录与成长档案，A4 结构，可直接打印导出 PDF |
 | 证书拍照录入 | 视觉模型抽字段 → 人工核对 → 入库 |
-| 专业知识地图 | 175 个专业各自的课程路线与进度可视化 |
+| 专业知识地图 | 175 个专业各自的课程路线与进度可视化（Grid 自适应，无重叠） |
 | 成长档案 | 项目/竞赛/证书/实习/荣誉五类归档与统计 |
 | 站内通知 | 竞赛报名与画像更新提醒，未读红点 |
+| B 站课堂 | 262 门公开课，按专业严格相关度推荐（对口 100 分 / 近亲 80 分 / 通用 60 分） |
+| 竞赛报名直达 | 16 个官方报名入口白名单 + 官网通知 + 校内检索兜底 |
+| 简历在线编辑 | 白名单字段编辑 + 独立 A4 打印页面，可直接导出 PDF |
+| B 站课堂 | 262 门公开课，按专业严格相关度推荐（对口 100 分 / 近亲 80 分 / 通用 60 分） |
+| 竞赛报名直达 | 16 个官方报名入口白名单 + 官网通知 + 校内检索兜底 |
+| 简历在线编辑 | 白名单字段编辑 + 独立 A4 打印页面，可直接导出 PDF |
 | 管理后台 | 运营看板 + 用户/角色管理 + 数据级联删除 |
 
 ---
@@ -299,7 +308,7 @@ zhitu-ai/
 ## 九、测试
 
 ```bash
-cd backend  && mvn test      # JUnit5：94 个用例（专业方向、Prompt 构造、JWT、AI 护栏、RAG、Agent 运行时、限流器）
+cd backend  && mvn test      # JUnit5：138 个用例（专业方向、课程相关度、报名入口、异常兜底、简历保存、Prompt、JWT、AI 护栏、RAG、Agent 运行时、限流器）
 cd frontend && npm test      # Node test runner：Markdown 渲染等纯函数
 ```
 
@@ -315,6 +324,8 @@ cd frontend && npm test      # Node test runner：Markdown 渲染等纯函数
 ---
 
 ## 十、团队信息
+
+> ⚠️ **提交前必做**：下表为占位，请替换为真实姓名、学校、专业与分工；公开仓库会直接展示这一节。
 
 | 角色 | 姓名 | 学校 | 专业 | 负责模块 |
 | --- | --- | --- | --- | --- |
@@ -332,4 +343,28 @@ cd frontend && npm test      # Node test runner：Markdown 渲染等纯函数
 
 ## 十一、许可证
 
-本项目为参赛作品，代码遵循 Apache-2.0 协议。演示账号与种子数据均为虚构，不涉及任何真实个人信息。
+本项目为 2026 第九届传智杯参赛原创作品，代码仅供竞赛评审与学习交流，未经作者许可不得用于商业用途。演示账号与种子数据均为虚构，不涉及任何真实个人信息。
+
+---
+
+## 十二、代码仓库与提交材料（省赛要求）
+
+赛项章程「作品提交要求」规定：**代码仓库须托管于 GitHub / Gitee 并设为 Public**，且须保留完整 Git 提交历史、提供 README 与环境变量模板。本仓库已按此组织：
+
+| 官方要求项 | 本仓库的落实 |
+| --- | --- |
+| 托管平台 GitHub / Gitee（Public） | 见 [docs/代码仓库与提交说明.md](docs/代码仓库与提交说明.md)；`scripts/publish-repo.bat` 可一键推送 |
+| 代码结构清晰、有效注释 | `backend` / `frontend` / `mcp-server` / `database` / `docs` / `scripts` 分层，AI 层与业务层解耦 |
+| README（项目介绍 / 技术架构 / 安装运行 / 团队信息） | 本文件第一、三、五、十章 |
+| 保留完整 Git 提交历史 | 46+ 次真实提交，自 2026-09-26 起；纯文本备份见 `docs/GIT_HISTORY.txt` |
+| 环境配置（环境变量模板 + 依赖清单） | [.env.example](.env.example)、[docs/环境配置说明.md](docs/环境配置说明.md)、[docs/DEPLOY.md](docs/DEPLOY.md) |
+| 敏感信息不得出现在公开仓库 | `AI_API_KEY` 等一律 `${VAR:}` 注入；`.env`、`application-prod.yml`、`*.pem`、`data/` 均被 `.gitignore` 排除 |
+
+**公开仓库地址（提交前替换为真实 URL）**：
+
+```
+GitHub: https://github.com/<你的用户名>/zhitu-ai
+Gitee : https://gitee.com/<你的用户名>/zhitu-ai
+```
+
+> 表单第 5 项仍要求「网盘链接」，因此网盘 zip 与 Public 仓库两者都要交，详见 [docs/代码仓库与提交说明.md](docs/代码仓库与提交说明.md)。

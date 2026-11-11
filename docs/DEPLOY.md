@@ -152,7 +152,7 @@ curl -s http://localhost:8080/api/ai/status -H "Authorization: Bearer $TOKEN"
 ## 五、运行测试
 
 ```bash
-# 后端：21 个单元测试
+# 后端：138 个单元测试
 cd backend && mvn test
 
 # 前端：12 个单元测试（用 Node 内置测试运行器，无需额外依赖）

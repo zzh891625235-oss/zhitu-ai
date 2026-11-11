@@ -2,7 +2,7 @@
   "name": "zhitu-ai-mcp-server",
   "version": "1.0.0",
   "private": true,
-  "description": "把智途AI 的 8 个 Agent 工具暴露为标准 MCP 工具的 stdio 传输服务",
+  "description": "把智途AI 的 9 个 Agent 工具暴露为标准 MCP 工具的 stdio 传输服务",
   "type": "module",
   "main": "index.js",
   "engines": {
