@@ -264,7 +264,7 @@ CREATE TABLE IF NOT EXISTS bilibili_resource (
     category VARCHAR(50) NOT NULL,
     keywords VARCHAR(500),
     difficulty VARCHAR(20) DEFAULT 'BEGINNER',
-    suitable_major VARCHAR(1000),
+    suitable_major VARCHAR(2000),
     description VARCHAR(500),
     url VARCHAR(300) NOT NULL,
     sort_order INT DEFAULT 0,

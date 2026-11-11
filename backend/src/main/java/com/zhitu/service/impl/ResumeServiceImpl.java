@@ -1,6 +1,7 @@
 package com.zhitu.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zhitu.exception.ProfileNotReadyException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
@@ -41,6 +42,7 @@ public class ResumeServiceImpl implements ResumeService {
     public Map<String, Object> generateResume(Long userId) {
         StudentProfile profile = profileMapper.selectOne(
             new LambdaQueryWrapper<StudentProfile>().eq(StudentProfile::getUserId, userId));
+        if (profile == null) throw new ProfileNotReadyException();
         User user = userMapper.selectById(userId);
 
         List<LearningRecord> learnRecords = learnMapper.selectList(
@@ -62,7 +64,7 @@ public class ResumeServiceImpl implements ResumeService {
                 return buildFallbackResume(profile, user, learnRecords, growthRecords, userId);
             }
 
-            saveResume(userId, resume);
+            persistResume(userId, resume);
             return resume;
         } catch (Exception e) {
             return buildFallbackResume(profile, user, learnRecords, growthRecords, userId);
@@ -79,7 +81,62 @@ public class ResumeServiceImpl implements ResumeService {
         } catch (Exception e) { return null; }
     }
 
-    private void saveResume(Long userId, Map<String, Object> resume) {
+    /** 在线编辑时允许写入的字段，其余一律忽略 */
+    private static final String[] RESUME_LIST_FIELDS = {
+            "skills", "courses", "projects", "competitions", "certificates"
+    };
+
+    /**
+     * 在线编辑保存：只接收白名单字段并做长度/数量清洗。
+     * 页面用文本插值渲染，这里主要防止超长内容、控制字符或任意嵌套结构
+     * 把 resume.content 这列 JSON 写坏，导致下次读取直接降级成空白简历。
+     */
+    @Override
+    public Map<String, Object> saveResume(Long userId, Map<String, Object> input) {
+        if (input == null) throw new IllegalArgumentException("简历内容不能为空");
+
+        Map<String, Object> clean = new LinkedHashMap<>();
+        clean.put("name", text(input.get("name"), 40, "同学"));
+        clean.put("targetPosition", text(input.get("targetPosition"), 80, ""));
+        clean.put("advantages", text(input.get("advantages"), 600, ""));
+
+        Object eduRaw = input.get("education");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> eduIn = eduRaw instanceof Map
+                ? (Map<String, Object>) eduRaw : Collections.emptyMap();
+        Map<String, String> edu = new LinkedHashMap<>();
+        edu.put("school", text(eduIn.get("school"), 80, ""));
+        edu.put("major", text(eduIn.get("major"), 80, ""));
+        edu.put("grade", text(eduIn.get("grade"), 40, ""));
+        clean.put("education", edu);
+
+        for (String key : RESUME_LIST_FIELDS) {
+            clean.put(key, textList(input.get(key)));
+        }
+
+        persistResume(userId, clean);
+        return clean;
+    }
+
+    private static String text(Object v, int max, String fallback) {
+        if (v == null) return fallback;
+        String s = String.valueOf(v).trim().replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]", "");
+        if (s.isEmpty()) return fallback;
+        return s.length() > max ? s.substring(0, max) : s;
+    }
+
+    private static List<String> textList(Object v) {
+        List<String> out = new ArrayList<>();
+        if (!(v instanceof Collection)) return out;
+        for (Object o : (Collection<?>) v) {
+            if (out.size() >= 40) break;
+            String s = text(o, 300, "");
+            if (!s.isEmpty() && !out.contains(s)) out.add(s);
+        }
+        return out;
+    }
+
+    private void persistResume(Long userId, Map<String, Object> resume) {
         resumeMapper.delete(new LambdaQueryWrapper<Resume>().eq(Resume::getUserId, userId));
         Resume r = new Resume();
         r.setUserId(userId);
@@ -181,7 +238,7 @@ public class ResumeServiceImpl implements ResumeService {
         resume.put("advantages", fallbackAdvantages(p, dir, it));
         resume.put("targetPosition", dir.positions().get(0));
 
-        saveResume(userId, resume);
+        persistResume(userId, resume);
         return resume;
     }
 

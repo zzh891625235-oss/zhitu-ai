@@ -1,10 +1,12 @@
 package com.zhitu.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zhitu.exception.ProfileNotReadyException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
 import com.zhitu.ai.CompetitionMajorMatcher;
+import com.zhitu.ai.CompetitionRegistrationLink;
 import com.zhitu.entity.*;
 import com.zhitu.mapper.*;
 import com.zhitu.service.CompetitionRecommendService;
@@ -38,7 +40,7 @@ public class CompetitionRecommendServiceImpl implements CompetitionRecommendServ
     public List<Map<String, Object>> recommend(Long userId) {
         StudentProfile profile = profileMapper.selectOne(
             new LambdaQueryWrapper<StudentProfile>().eq(StudentProfile::getUserId, userId));
-        if (profile == null) throw new RuntimeException("请先完善档案");
+        if (profile == null) throw new ProfileNotReadyException();
 
         User user = userMapper.selectById(userId);
         String majorName = resolveMajorName(profile.getMajorId());
@@ -138,6 +140,7 @@ public class CompetitionRecommendServiceImpl implements CompetitionRecommendServ
                 long days = ChronoUnit.DAYS.between(LocalDate.now(), comp.getRegistrationEnd());
                 rec.put("daysLeft", days);
                 rec.put("recommendDays", comp.getRecommendDays());
+                CompetitionRegistrationLink.decorate(rec, comp);
             }
         }
     }
@@ -250,6 +253,7 @@ public class CompetitionRecommendServiceImpl implements CompetitionRecommendServ
             item.put("score", Math.max(0, Math.min(100, score)));
             item.put("reasons", reasons);
             item.put("matchLevel", lvl == null ? null : lvl.name());
+            CompetitionRegistrationLink.decorate(item, c);
             results.add(item);
         }
 

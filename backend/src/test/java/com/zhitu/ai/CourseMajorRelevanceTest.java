@@ -93,6 +93,30 @@ class CourseMajorRelevanceTest {
     }
 
     @Test
+    void fitnessRanksMajorSpecificCoursesAboveCrossDisciplineOnes() {
+        assertThat(CourseMajorRelevance.coreToken("心理学")).isEqualTo("心理");
+        assertThat(CourseMajorRelevance.coreToken("口腔医学")).isEqualTo("口腔");
+        assertThat(CourseMajorRelevance.coreToken("临床医学")).isEqualTo("临床");
+        assertThat(CourseMajorRelevance.coreToken("计算机科学与技术")).isEqualTo("计算");
+        assertThat(CourseMajorRelevance.coreToken("汉语言文学")).isEqualTo("汉语");
+        assertThat(CourseMajorRelevance.coreToken("法学")).isEqualTo("法");
+        assertThat(CourseMajorRelevance.coreToken("茶学")).isEqualTo("茶");
+
+        int core = CourseMajorRelevance.fitness("普通心理学 · 彭聃龄", "普通心理学,彭聃龄",
+                "[\"心理学\",\"教育学\"]", "心理学");
+        int side = CourseMajorRelevance.fitness("统计学入门", "统计,假设检验",
+                "[\"心理学\",\"教育学\",\"统计学\"]", "心理学");
+        assertThat(core).as("标题命中专业核心词的课程应排在拓展课前面").isGreaterThan(side);
+
+        int dental = CourseMajorRelevance.fitness("口腔解剖生理学", "口腔解剖,牙体",
+                "[\"口腔医学\",\"临床医学\"]", "口腔医学");
+        int anatomy = CourseMajorRelevance.fitness("人体解剖学 · 系统解剖全程", "系统解剖学",
+                "[\"临床医学\",\"口腔医学\",\"护理学\"]", "口腔医学");
+        assertThat(dental).isGreaterThan(anatomy);
+        assertThat(CourseMajorRelevance.fitness("普通心理学", "心理学", "[\"心理学\"]", null)).isZero();
+    }
+
+    @Test
     void dirtyDataNeverBecomesGeneralCourse() {
         assertThat(CourseMajorRelevance.score("not-a-json-array", "心理学"))
                 .isEqualTo(CourseMajorRelevance.NOT_MATCH);

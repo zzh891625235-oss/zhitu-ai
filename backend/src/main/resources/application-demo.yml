@@ -18,9 +18,10 @@ spring:
   # 启动时自动执行建表脚本（schema 为 IF NOT EXISTS，重启幂等）
   # 专业/课程/演示账号由 SeedDataInitializer 在「major 表为空」时才导入
   #
-  # 竞赛字典单独走 data-locations 每次启动执行：
-  # 该脚本用 MERGE ... KEY(name) 做幂等 upsert，所以补齐新赛事、修正
-  # 专业对应关系后，用户不需要清空 data/ 目录重建数据库。
+  # 竞赛字典、B 站公开课字典单独走 data-locations 每次启动执行：
+  # 两份脚本用 MERGE ... KEY(...) 做幂等 upsert，末尾还会清理已下架/映射过时的
+  # 旧条目，所以扩充课程、修正专业对应关系后，用户不需要清空 data/ 目录重建数据库。
+  # B 站种子由 scripts/gen-bilibili-seed.py 生成，专业名严格对齐 database/majors.sql。
   sql:
     init:
       mode: always

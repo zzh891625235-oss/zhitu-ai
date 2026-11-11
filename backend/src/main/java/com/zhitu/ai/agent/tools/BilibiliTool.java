@@ -1,6 +1,7 @@
 package com.zhitu.ai.agent.tools;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zhitu.ai.BilibiliRecommendPolicy;
 import com.zhitu.ai.CourseMajorRelevance;
 import com.zhitu.ai.agent.JsonTool;
 import com.zhitu.ai.agent.ToolSchemas;
@@ -89,7 +90,7 @@ public class BilibiliTool extends JsonTool {
             return json(out);
         }
 
-        // 无关键词：按学生专业打分排序，与页面推荐同一套规则
+        // 无关键词：按学生专业打分，推荐位分配与页面完全共用 BilibiliRecommendPolicy
         StudentProfile p = profileMapper.selectOne(
                 new LambdaQueryWrapper<StudentProfile>().eq(StudentProfile::getUserId, userId));
         String majorName = null;
@@ -105,17 +106,30 @@ public class BilibiliTool extends JsonTool {
             if (score == CourseMajorRelevance.NOT_MATCH) continue;
             Map<String, Object> m = item(r);
             m.put("score", score);
+            m.put("matchLabel", label(score));
             m.put("matchReason", CourseMajorRelevance.reason(score, suitable, majorName));
+            // 与页面推荐同一套「专业核心词命中」贴合度加权
+            m.put("fitness", CourseMajorRelevance.fitness(
+                    r.getTitle(), r.getKeywords(), suitable, majorName));
             ranked.add(m);
         }
-        // 稳定排序：同分保留 sort_order 的学习顺序
-        ranked.sort((a, b) -> Integer.compare((int) b.get("score"), (int) a.get("score")));
+        // 同分内：贴合度高的纯专业课本排前，其次保留 all 的 sort_order 学习顺序
+        ranked.sort((a, b) -> {
+            int byScore = Integer.compare((int) b.get("score"), (int) a.get("score"));
+            return byScore != 0 ? byScore
+                    : Integer.compare((int) b.get("fitness"), (int) a.get("fitness"));
+        });
+        BilibiliRecommendPolicy.PickResult<Map<String, Object>> pick = BilibiliRecommendPolicy.pick(
+                ranked, limit, m -> (int) m.get("score"), m -> (String) m.get("category"));
 
         out.put("query", "(按专业推荐)");
         out.put("majorName", majorName);
-        out.put("hint", "以下为按专业相关度排序的 B 站公开课资源，链接可直接给到学生");
-        out.put("found", Math.min(limit, ranked.size()));
-        out.put("courses", ranked.subList(0, Math.min(limit, ranked.size())));
+        out.put("hint", "按「专业对口 > 相近专业 > 通用技能」分层推荐，链接可直接给到学生");
+        out.put("found", pick.items().size());
+        out.put("exactTotal", pick.exactTotal());
+        List<Map<String, Object>> courses = pick.items();
+        for (Map<String, Object> m : courses) m.remove("fitness");
+        out.put("courses", courses);
         return json(out);
     }
 
@@ -132,6 +146,12 @@ public class BilibiliTool extends JsonTool {
 
     private boolean hit(String text, String lowercaseKeyword) {
         return text != null && text.toLowerCase().contains(lowercaseKeyword);
+    }
+
+    private String label(int score) {
+        if (score >= CourseMajorRelevance.EXACT) return "专业对口";
+        if (score >= CourseMajorRelevance.RELATED) return "相近专业";
+        return "通用技能";
     }
 
     @Override

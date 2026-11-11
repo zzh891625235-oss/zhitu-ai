@@ -1,6 +1,7 @@
 package com.zhitu.ai.rag;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zhitu.ai.CompetitionRegistrationLink;
 import com.zhitu.entity.Competition;
 import com.zhitu.entity.Course;
 import com.zhitu.entity.Major;
@@ -233,8 +234,12 @@ public class RagService {
                 sb.append("简介：").append(c.getDescription()).append('\n');
             }
             if (c.getOfficialUrl() != null && !c.getOfficialUrl().isEmpty()) {
-                sb.append("官网：").append(c.getOfficialUrl());
+                sb.append("官网：").append(c.getOfficialUrl()).append('\n');
             }
+            // 报名入口也进检索库：学生问「XX 比赛在哪报名」时能召回可执行的链接
+            CompetitionRegistrationLink.apply(c);
+            sb.append("报名渠道：").append(c.getRegistrationLabel()).append('\n');
+            sb.append("报名入口：").append(c.getRegistrationUrl());
             out.add(new Chunk("competition", String.valueOf(c.getId()), c.getName(), sb.toString()));
         }
         return out;

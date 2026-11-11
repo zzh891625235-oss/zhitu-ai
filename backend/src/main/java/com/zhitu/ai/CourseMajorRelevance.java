@@ -122,4 +122,48 @@ public final class CourseMajorRelevance {
         }
         return s;
     }
+
+    /** 专业名里用于「贴合度加权」的后缀，长后缀优先 */
+    private static final String[] CORE_SUFFIXES = {
+            "科学与技术", "及其自动化", "与行政学", "工程", "技术", "科学", "学", "类", "专业"};
+
+    /**
+     * 同为 100 分课程之间的排序权重：<b>不改变展示分数</b>，只决定谁排在前面。
+     *
+     * <p>「精确列出专业」只能说明这门课适合该专业，不能说明它是核心课还是拓展课。
+     * 例如「人力资源管理概论」也列了心理学，但它不该排在「普通心理学」前面。
+     * 因此叠加两个信号：课程标题 / 关键词命中专业核心词（+60），以及
+     * 适配专业清单足够聚焦（≤8 门 +20，≤20 门 +10）。
+     *
+     * @return 0~80 的贴合度权重，越大越贴合
+     */
+    public static int fitness(String title, String keywords, String suitableMajorJson, String majorName) {
+        if (majorName == null || majorName.trim().isEmpty()) return 0;
+        String token = coreToken(majorName.trim());
+        if (token.isEmpty()) return 0;
+        String text = (title == null ? "" : title) + " " + (keywords == null ? "" : keywords);
+        int value = text.contains(token) ? 60 : 0;
+        List<String> list = parse(suitableMajorJson);
+        if (list != null) {
+            int n = list.size();
+            if (n <= 8) value += 20;
+            else if (n <= 20) value += 10;
+        }
+        return value;
+    }
+
+    /** 心理学→心理，口腔医学→口腔，临床医学→临床，计算机科学与技术→计算，法学→法 */
+    static String coreToken(String majorName) {
+        String s = majorName.trim();
+        for (String suffix : CORE_SUFFIXES) {
+            if (s.length() > suffix.length() && s.endsWith(suffix)) {
+                s = s.substring(0, s.length() - suffix.length());
+                break;
+            }
+        }
+        if (s.length() > 1 && "医文教科工".contains(s.substring(s.length() - 1))) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s.length() > 2 ? s.substring(0, 2) : s;
+    }
 }

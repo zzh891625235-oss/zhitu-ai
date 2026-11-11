@@ -1,6 +1,7 @@
 package com.zhitu.controller;
 
 import com.zhitu.ai.CompetitionMajorMatcher;
+import com.zhitu.ai.CompetitionRegistrationLink;
 import com.zhitu.dto.Result;
 import com.zhitu.entity.Competition;
 import com.zhitu.entity.Major;
@@ -54,6 +55,12 @@ public class CompetitionController {
         wrapper.orderByAsc(Competition::getRegistrationEnd);
         List<Competition> list = competitionMapper.selectList(wrapper);
 
+        // 报名入口在返回前统一填充：未建档的用户同样要能一键到达报名页，
+        // 所以不能放进下面「有专业才执行」的分支里。
+        for (Competition c : list) {
+            CompetitionRegistrationLink.apply(c);
+        }
+
         String majorName = resolveMajorName(majorId, auth);
         if (majorName.isEmpty()) {
             return Result.success(list);
@@ -74,6 +81,7 @@ public class CompetitionController {
     public Result<Competition> getCompetition(@PathVariable Long id, Authentication auth) {
         Competition c = competitionMapper.selectById(id);
         if (c == null) return Result.success(null);
+        CompetitionRegistrationLink.apply(c);
         String majorName = resolveMajorName(null, auth);
         if (!majorName.isEmpty()) markMatch(c, majorName);
         return Result.success(c);

@@ -1,6 +1,7 @@
 package com.zhitu.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zhitu.exception.ProfileNotReadyException;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -139,7 +140,7 @@ public class StudentProfileServiceImpl implements StudentProfileService {
     public Map<String, Object> generatePortrait(Long userId) {
         StudentProfile profile = getByUserId(userId);
         if (profile == null) {
-            throw new RuntimeException("请先完善个人档案信息");
+            throw new ProfileNotReadyException();
         }
         User user = userMapper.selectById(userId);
 

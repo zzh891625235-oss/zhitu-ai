@@ -2,6 +2,7 @@ package com.zhitu.ai.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhitu.ai.CompetitionRegistrationLink;
 import com.zhitu.ai.rag.RagService;
 import org.springframework.stereotype.Component;
 
@@ -273,12 +274,20 @@ public class OfflineComposer {
             if (!c.path("daysLeft").isNull()) {
                 sb.append("     距报名截止：").append(c.path("daysLeft").asInt(0)).append(" 天\n");
             }
+            String regUrl = c.path("registrationUrl").asText("");
+            if (regUrl.isEmpty()) {
+                // 兼容旧版工具结果：按赛事名现场解析，保证离线答案也能给出报名入口
+                regUrl = CompetitionRegistrationLink.urlByName(
+                        c.path("name").asText(""), c.path("officialUrl").asText(""));
+            }
+            String regLabel = c.path("registrationLabel").asText("查看报名安排");
+            sb.append("     报名入口（").append(regLabel).append("）：").append(regUrl).append('\n');
             String url = c.path("officialUrl").asText("");
             if (!url.isEmpty()) {
                 sb.append("     官网：").append(url).append('\n');
             }
         }
-        sb.append("- 以上全部取自平台竞赛库，名称与官网都是真实记录，不做列表之外的推荐");
+        sb.append("- 以上全部取自平台竞赛库，名称、官网与报名入口均为平台真实解析结果，不做列表之外的推荐");
         return sb.toString();
     }
 

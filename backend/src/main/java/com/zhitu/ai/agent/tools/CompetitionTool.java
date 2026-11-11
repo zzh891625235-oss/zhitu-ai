@@ -2,6 +2,7 @@ package com.zhitu.ai.agent.tools;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zhitu.ai.CompetitionMajorMatcher;
+import com.zhitu.ai.CompetitionRegistrationLink;
 import com.zhitu.ai.agent.JsonTool;
 import com.zhitu.ai.agent.ToolSchemas;
 import com.zhitu.entity.Competition;
@@ -54,8 +55,11 @@ public class CompetitionTool extends JsonTool {
     @Override
     public String description() {
         return "按学生的专业与年级检索平台内真实存在的竞赛，返回名称、类别、难度、对口程度、"
-                + "匹配度评分与推荐理由。评分已综合考虑专业对口度、难度是否合适、年级是否合适、"
+                + "匹配度评分、推荐理由，以及报名入口 registrationUrl（官方在线报名 / 校内报名指引 / 报名通知）"
+                + "与报名状态 registrationStatus。评分已综合考虑专业对口度、难度是否合适、年级是否合适、"
                 + "距离报名截止还剩多少天，请优先推荐 score 高的。"
+                + "学生问「怎么报名」「在哪报名」时，直接给出返回结果里的 registrationUrl，"
+                + "并说明 registrationLabel 对应的报名渠道，严禁自行编造报名网址。"
                 + "严禁推荐返回结果之外的赛事，也不标明不在结果中的官网。";
     }
 
@@ -99,9 +103,14 @@ public class CompetitionTool extends JsonTool {
                 item.put("daysLeft", rec.get("daysLeft"));
                 item.put("officialUrl", rec.get("officialUrl"));
                 item.put("matchLevel", rec.get("matchLevel") == null ? "RELATED" : rec.get("matchLevel"));
+                item.put("registrationUrl", rec.get("registrationUrl"));
+                item.put("registrationChannel", rec.get("registrationChannel"));
+                item.put("registrationLabel", rec.get("registrationLabel"));
+                item.put("registrationStatus", rec.get("registrationStatus"));
+                item.put("registrationAction", rec.get("registrationAction"));
                 picked.add(item);
             }
-            out.put("recommendationSource", "平台推荐引擎（含匹配度评分与理由）");
+            out.put("recommendationSource", "平台推荐引擎（含匹配度评分、理由与报名入口）");
             out.put("competitions", picked.subList(0, Math.min(limit, picked.size())));
             out.put("total", countMatched(userId));
         } else {
@@ -111,7 +120,8 @@ public class CompetitionTool extends JsonTool {
             out.put("total", 0);
             out.put("hint", "该学生尚未填写档案，建议先引导他完善专业与年级");
         }
-        out.put("notice", "以上赛事均来自平台数据库，id 与官网真实存在；不要推荐此列表之外的赛事。");
+        out.put("notice", "以上赛事均来自平台数据库，id、官网与报名入口均为平台解析结果；"
+                + "不要推荐此列表之外的赛事，也不要编造报名链接。");
         return json(out);
     }
 
@@ -163,6 +173,7 @@ public class CompetitionTool extends JsonTool {
             item.put("reasons", Collections.singletonList("与该专业对口，但未做个性化打分"));
             item.put("officialUrl", c.getOfficialUrl());
             item.put("matchLevel", level.name());
+            CompetitionRegistrationLink.decorate(item, c);
             all.add(item);
         }
         return all.subList(0, Math.min(limit, all.size()));

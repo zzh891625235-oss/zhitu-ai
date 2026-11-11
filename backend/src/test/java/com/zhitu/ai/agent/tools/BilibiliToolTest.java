@@ -134,6 +134,33 @@ class BilibiliToolTest {
     }
 
     @Test
+    void noKeywordPrefersExactCoursesOverGeneralOnes() {
+        List<BilibiliResource> data = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            BilibiliResource r = resource("心理学专业课" + i, "心理学课堂", "大学基础课",
+                    "心理学", "https://s.bilibili.com/psy" + i);
+            r.setSuitableMajor("[\"心理学\"]");
+            data.add(r);
+        }
+        data.add(resource("Excel 通用课", "王佩丰", "职场技能",
+                "Excel", "https://s.bilibili.com/excel"));
+        when(resourceMapper.selectList(any())).thenReturn(data);
+
+        StudentProfile p = new StudentProfile();
+        p.setMajorId(1L);
+        when(profileMapper.selectOne(any())).thenReturn(p);
+        Major major = new Major();
+        major.setName("心理学");
+        when(majorMapper.selectById(1L)).thenReturn(major);
+
+        String out = tool.execute(1L, args("limit", 5));
+        assertThat(out).contains("\"found\":5");
+        assertThat(out).contains("\"exactTotal\":6");
+        assertThat(out).doesNotContain("Excel 通用课")
+                .as("对口课足够时，通用课不应该占用 AI 助手的推荐位");
+    }
+
+    @Test
     void toolIdentityAndSchema() {
         assertThat(tool.name()).isEqualTo("search_bilibili_courses");
         assertThat(tool.description()).contains("B 站");

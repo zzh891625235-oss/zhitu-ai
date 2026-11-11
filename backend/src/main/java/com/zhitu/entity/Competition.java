@@ -36,4 +36,20 @@ public class Competition {
     /** EXACT / RELATED / OPEN，见 CompetitionMajorMatcher.MatchLevel */
     @TableField(exist = false)
     private String matchLevel;
+
+    /**
+     * 报名入口直达（不落库）：由 CompetitionRegistrationLink 在返回前统一填充。
+     * 报名系统地址每年会变，写入数据库会让老用户长期留着过期链接，
+     * 因此做成计算字段：不改表结构、不需要清库，H2 / MySQL / 分布式三档行为一致。
+     */
+    @TableField(exist = false)
+    private String registrationUrl;
+    @TableField(exist = false)
+    private String registrationChannel;
+    @TableField(exist = false)
+    private String registrationLabel;
+    @TableField(exist = false)
+    private String registrationStatus;
+    @TableField(exist = false)
+    private String registrationAction;
 }

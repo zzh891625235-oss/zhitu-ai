@@ -1,6 +1,7 @@
 package com.zhitu.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zhitu.ai.BilibiliRecommendPolicy;
 import com.zhitu.ai.CourseMajorRelevance;
 import com.zhitu.dto.Result;
 import com.zhitu.entity.BilibiliResource;
@@ -60,7 +61,7 @@ public class BilibiliController {
     public Result<List<Map<String, Object>>> resources(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "60") int limit) {
+            @RequestParam(defaultValue = "400") int limit) {
 
         boolean hasCategory = category != null && !category.trim().isEmpty();
         List<BilibiliResource> list = resourceMapper.selectList(
@@ -84,8 +85,9 @@ public class BilibiliController {
     }
 
     /**
-     * 个性化推荐：100 分精确对口 > 80 分近亲专业 > 60 分真通用，不对口的直接跳过。
-     * 同分按 sort_order（推荐学习顺序）稳定排序，每个分类最多 4 条保证多样性。
+     * 个性化推荐：不对口的课程直接跳过；推荐位由 {@link BilibiliRecommendPolicy} 按
+     * 「100 分对口优先占满 → 80 分近亲最多 3 门 → 60 分通用最多 2 门」分配，
+     * 同分按 sort_order（推荐学习顺序）稳定排序，避免通用课挤掉专业课。
      */
     @GetMapping("/recommend")
     public Result<Map<String, Object>> recommend(Authentication auth) {
@@ -110,31 +112,51 @@ public class BilibiliController {
             if (score == CourseMajorRelevance.NOT_MATCH) continue;
             Map<String, Object> item = toItem(r, CourseMajorRelevance.reason(score, suitable, majorName));
             item.put("score", score);
+            item.put("matchType", matchType(score));
+            item.put("matchLabel", matchLabel(score));
+            // 同为 100 分时，标题命中专业核心词的课程排在拓展课前面
+            item.put("fitness", CourseMajorRelevance.fitness(
+                    r.getTitle(), r.getKeywords(), suitable, majorName));
             scored.add(item);
         }
 
+        // 先按分数、贴合度、sort_order 排好；策略内部按分数做稳定排序时会保留这个同分顺序
         scored.sort((a, b) -> {
             int byScore = Integer.compare((int) b.get("score"), (int) a.get("score"));
-            return byScore != 0 ? byScore : Integer.compare((int) a.get("sortOrder"), (int) b.get("sortOrder"));
+            if (byScore != 0) return byScore;
+            int byFitness = Integer.compare((int) b.get("fitness"), (int) a.get("fitness"));
+            return byFitness != 0 ? byFitness
+                    : Integer.compare((int) a.get("sortOrder"), (int) b.get("sortOrder"));
         });
 
-        // 同分类最多 4 条，避免某个大类刷屏
-        Map<String, Integer> categoryCount = new HashMap<>();
-        List<Map<String, Object>> picked = new ArrayList<>();
-        for (Map<String, Object> item : scored) {
-            String cat = (String) item.get("category");
-            int used = categoryCount.getOrDefault(cat, 0);
-            if (used >= 4) continue;
-            categoryCount.put(cat, used + 1);
-            picked.add(item);
-            if (picked.size() >= 16) break;
-        }
+        BilibiliRecommendPolicy.PickResult<Map<String, Object>> pick = BilibiliRecommendPolicy.pick(
+                scored, BilibiliRecommendPolicy.DEFAULT_LIMIT,
+                m -> (int) m.get("score"), m -> (String) m.get("category"));
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("majorName", majorName);
         out.put("total", all.size());
+        out.put("exactTotal", pick.exactTotal());
+        out.put("relatedTotal", pick.relatedTotal());
+        out.put("openTotal", pick.openTotal());
+        out.put("exactPicked", pick.exactPicked());
+        // fitness 只是内部排序键，不暴露给前端
+        List<Map<String, Object>> picked = pick.items();
+        for (Map<String, Object> item : picked) item.remove("fitness");
         out.put("recommendations", picked);
         return Result.success(out);
+    }
+
+    private String matchType(int score) {
+        if (score >= CourseMajorRelevance.EXACT) return "exact";
+        if (score >= CourseMajorRelevance.RELATED) return "related";
+        return "open";
+    }
+
+    private String matchLabel(int score) {
+        if (score >= CourseMajorRelevance.EXACT) return "专业对口";
+        if (score >= CourseMajorRelevance.RELATED) return "相近专业";
+        return "通用技能";
     }
 
     private Map<String, Object> toItem(BilibiliResource r, String reason) {

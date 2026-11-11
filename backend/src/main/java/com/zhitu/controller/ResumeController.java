@@ -31,4 +31,11 @@ public class ResumeController {
         if (resume == null) return Result.success("尚未生成简历", null);
         return Result.success(resume);
     }
+
+    /** 在线编辑后保存：先生成一份简历，再按自己的经历修改，修改会持久化 */
+    @PutMapping("/resume")
+    public Result<Map<String, Object>> saveResume(@RequestBody Map<String, Object> body, Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        return Result.success("简历已保存", resumeService.saveResume(userId, body));
+    }
 }

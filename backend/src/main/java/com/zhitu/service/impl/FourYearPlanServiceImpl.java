@@ -1,6 +1,7 @@
 package com.zhitu.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zhitu.exception.ProfileNotReadyException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
@@ -43,7 +44,7 @@ public class FourYearPlanServiceImpl implements FourYearPlanService {
     public Map<String, Object> generatePlan(Long userId) {
         StudentProfile profile = profileMapper.selectOne(
             new LambdaQueryWrapper<StudentProfile>().eq(StudentProfile::getUserId, userId));
-        if (profile == null) throw new RuntimeException("请先完善个人档案");
+        if (profile == null) throw new ProfileNotReadyException();
 
         User user = userMapper.selectById(userId);
         String systemPrompt = buildSystemPrompt();

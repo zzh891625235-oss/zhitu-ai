@@ -1,6 +1,7 @@
 package com.zhitu.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zhitu.exception.ProfileNotReadyException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhitu.ai.AIService;
@@ -37,6 +38,7 @@ public class StudyPlanServiceImpl implements StudyPlanService {
     public List<Map<String, Object>> generateStudyPlan(Long userId, int days) {
         StudentProfile profile = profileMapper.selectOne(
             new LambdaQueryWrapper<StudentProfile>().eq(StudentProfile::getUserId, userId));
+        if (profile == null) throw new ProfileNotReadyException();
 
         // 获取最近学习记录用于分析
         List<LearningRecord> recentRecords = recordMapper.selectList(
