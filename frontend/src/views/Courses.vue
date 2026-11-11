@@ -5,10 +5,17 @@
       <p>{{ majorName || '我的专业' }} · 完整学习路线</p>
     </div>
 
-    <!-- 该专业课程数据尚未补充时的中性空状态，不做任何其它专业的兜底 -->
+    <!-- 空状态分两种原因：没选专业要引导初始化，选了专业但缺数据才说「补充中」。
+         以前两者共用一个文案，评委用新账号进来会误以为课程库根本没做完。 -->
     <div class="major-notice" v-if="loaded && !courses.length">
       <el-icon><InfoFilled /></el-icon>
-      <span>「{{ majorName || '该专业' }}」的课程数据正在补充中，敬请期待。</span>
+      <template v-if="!majorId">
+        <span>还没有选择专业。完成 AI 成长档案初始化后，这里会自动生成属于你专业的完整课程地图。</span>
+        <el-button size="small" type="primary" round @click="$router.push('/init')">去完善档案</el-button>
+      </template>
+      <template v-else>
+        <span>「{{ majorName || '该专业' }}」的课程数据正在补充中，敬请期待。</span>
+      </template>
     </div>
 
     <!-- 统计条 -->
@@ -37,9 +44,10 @@
         <div class="track-line"></div>
         <div class="track-progress" :style="{ height: totalProgress + '%' }"></div>
 
+        <!-- 按行排布：两张卡片占一行，行高由内容撑开，课程再多也不会互相压叠 -->
         <div class="course-node" v-for="(course, idx) in courses" :key="course.id"
           :class="[statusClass(course), 'pos-' + (idx % 2)]"
-          :style="{ top: (courses.length > 1 ? (idx / (courses.length - 1)) * 100 : 0) + '%' }">
+          :style="{ '--row': Math.floor(idx / 2) + 1 }">
           <!-- 连接点 -->
           <div class="node-connector" :class="statusClass(course)"></div>
 
@@ -105,6 +113,7 @@ const dialogVisible = ref(false)
 const selectedCourse = ref(null)
 const sliderProgress = ref(0)
 const majorName = ref('')
+const majorId = ref(null)
 const loaded = ref(false)
 
 const completedCount = computed(() => courses.value.filter(c => c.progress >= 100).length)
@@ -140,25 +149,24 @@ function progressColor(c) {
 }
 
 onMounted(async () => {
-  // 只加载学生本人专业的课程；未初始化档案或该专业课程为空时显示中性空状态
-  let majorId = null
+  // 只加载学生本人专业的课程；未初始化档案时引导去初始化，不做其它专业兜底
   try {
     const profile = (await getProfileApi()).data
     if (profile?.majorId) {
-      majorId = profile.majorId
+      majorId.value = profile.majorId
       majorName.value = profile.majorName || ''
     }
   } catch (e) {
     // 档案尚未初始化
   }
 
-  if (majorId == null) {
+  if (majorId.value == null) {
     loaded.value = true
     return
   }
 
   try {
-    courses.value = (await getCoursesApi(majorId)).data || []
+    courses.value = (await getCoursesApi(majorId.value)).data || []
   } catch (e) {
     ElMessage.error('加载课程失败')
   } finally {
@@ -200,15 +208,28 @@ async function handleProgressChange(val) {
   max-width: 640px; margin: 0 auto 28px; padding: 12px 18px;
   border-radius: var(--radius); font-size: 13px; color: #F5C97A;
   background: rgba(245,165,36,.10); border: 1px solid rgba(245,165,36,.22);
+  flex-wrap: wrap; gap: 8px; text-align: center;
 }
 .stat-mini { text-align: center; }
 .stat-num { display: block; font-size: 26px; font-weight: 700; color: var(--text); }
 .stat-mini.accent .stat-num { color: var(--primary); }
 .stat-txt { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
-/* 知识地图 - 双列时间线 */
+/* 知识地图 - 双列时间线
+   行高完全由卡片内容撑开：早期实现用固定 1200px 高度 + 绝对定位按百分比
+   分布节点，专业课程一多（十几门）分配到的间距小于卡片实际高度，相邻卡片
+   就会上下压叠。改成 CSS Grid 后，每两门课占一行、行高自适应，永不重叠。 */
 .knowledge-map { position: relative; padding: 20px 0 60px; }
-.map-track { position: relative; min-height: 1200px; }
+.map-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: auto;
+  column-gap: 0;
+  row-gap: 22px;
+  align-items: stretch;
+  padding: 8px 0;
+}
 .track-line {
   position: absolute; left: 50%; top: 0; bottom: 0;
   width: 3px; background: var(--border); transform: translateX(-50%);
@@ -221,9 +242,9 @@ async function handleProgressChange(val) {
   transition: height .6s cubic-bezier(.4,0,.2,1);
 }
 
-.course-node { position: absolute; width: 44%; transition: all .3s; }
-.course-node.pos-0 { left: 0; padding-right: 32px; text-align: right; }
-.course-node.pos-1 { right: 0; padding-left: 32px; }
+.course-node { position: relative; width: auto; min-width: 0; grid-row: var(--row); transition: all .3s; }
+.course-node.pos-0 { grid-column: 1; padding-right: 32px; text-align: right; }
+.course-node.pos-1 { grid-column: 2; padding-left: 32px; }
 
 /* 连接点 */
 .node-connector {
@@ -241,22 +262,33 @@ async function handleProgressChange(val) {
   background:var(--glass); border-radius: var(--radius); padding: 18px 20px;
   border: 1.5px solid var(--border); cursor: pointer;
   transition: all var(--transition); position: relative; overflow: hidden;
+  /* 同一行的两张卡片等高，底部进度条水平对齐 */
+  height: 100%; display: flex; flex-direction: column;
 }
 .node-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .node-card.completed { border-color: rgba(0,210,160,.3); background: rgba(0,210,160,.02); }
 .node-card.in-progress { border-color: rgba(139,195,74,.3); background: rgba(139,195,74,.02); }
 
-.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+/* 右上角的完成徽标是绝对定位，右侧留出空间避免压住类别/难度标签 */
+.card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; min-width: 0; padding-right: 30px; }
 .pos-0 .card-top { flex-direction: row-reverse; }
-.card-category { font-size: 11px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
-.card-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
-.card-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; }
-.card-bottom { display: flex; align-items: center; gap: 12px; }
+.card-top :deep(.el-tag) { flex-shrink: 0; }
+.card-category {
+  font-size: 11px; color: var(--text-muted); font-weight: 500;
+  text-transform: uppercase; letter-spacing: .5px;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.card-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; overflow-wrap: anywhere; }
+.card-desc {
+  font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;
+  flex: 1; overflow-wrap: anywhere; word-break: break-word;
+}
+.card-bottom { display: flex; align-items: center; gap: 12px; min-width: 0; margin-top: auto; }
 .pos-0 .card-bottom { flex-direction: row-reverse; }
-.card-semester { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.card-progress { flex: 1; display: flex; align-items: center; gap: 8px; }
-.card-progress :deep(.el-progress) { flex: 1; }
-.progress-num { font-size: 12px; font-weight: 600; color: var(--text-secondary); min-width: 32px; }
+.card-semester { font-size: 12px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.card-progress { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.card-progress :deep(.el-progress) { flex: 1; min-width: 0; }
+.progress-num { font-size: 12px; font-weight: 600; color: var(--text-secondary); min-width: 32px; flex-shrink: 0; }
 
 .card-status-badge {
   position: absolute; top: 10px; right: 10px;
@@ -278,4 +310,17 @@ async function handleProgressChange(val) {
 .detail-progress { display: flex; align-items: center; gap: 16px; }
 .detail-progress span { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
 .detail-progress :deep(.el-slider) { flex: 1; }
+
+/* 窄屏收成单列时间线：竖线靠左，卡片依次排列，避免两列被挤到文字折行重叠 */
+@media (max-width: 820px) {
+  .map-track { grid-template-columns: 1fr; row-gap: 16px; }
+  .course-node.pos-0, .course-node.pos-1 {
+    grid-column: 1; grid-row: auto;
+    padding-left: 36px; padding-right: 0; text-align: left;
+  }
+  .pos-0 .card-top, .pos-0 .card-bottom { flex-direction: row; }
+  .pos-0 .node-connector, .pos-1 .node-connector { left: 0; right: auto; }
+  .track-line, .track-progress { left: 7px; }
+  .stats-bar { gap: 20px; }
+}
 </style>

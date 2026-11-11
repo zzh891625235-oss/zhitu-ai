@@ -38,7 +38,7 @@ onMounted(async()=>{
   try{ const profile=(await getProfileApi()).data; currentGrade.value=profile?.grade||'' }catch(e){}
   try{ plan.value=(await getPlanApi()).data }catch(e){}
 })
-async function handleGenerate(){generating.value=true;try{const res=await generatePlanApi();plan.value=res.data;ElMessage.success('AI四年规划生成完成')}catch(e){ElMessage.error('生成失败，请确保已完成档案初始化')}finally{generating.value=false}}
+async function handleGenerate(){generating.value=true;try{const res=await generatePlanApi();plan.value=res.data;ElMessage.success('AI四年规划生成完成')}catch(e){if(!/档案|初始化/.test(e?.message||''))ElMessage.error('生成失败，请稍后重试')}finally{generating.value=false}}
 </script>
 
 <style scoped>

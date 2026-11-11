@@ -16,6 +16,19 @@
       </div>
     </div>
 
+    <!-- 报名直达横幅：一眼看到有多少场正在报名，并可一键只看报名中 -->
+    <div class="reg-bar">
+      <div class="reg-bar-main">
+        <span class="reg-live-dot"></span>
+        <strong>{{ openCount }} 场</strong> 赛事正在报名
+        <span class="reg-bar-sub">点卡片下方按钮，直达官方报名系统或本校报名通知</span>
+      </div>
+      <div class="reg-bar-switch">
+        <el-switch v-model="onlyOpen" size="small" />
+        <span>只看报名中</span>
+      </div>
+    </div>
+
     <!-- 全部竞赛视图 -->
     <template v-if="activeTab === 'all'">
       <div class="filter-bar">
@@ -53,6 +66,9 @@
               <el-tag v-if="comp.matchLevel === 'EXACT'" type="success" size="small" effect="plain" round>对口我的专业</el-tag>
               <el-tag v-else-if="comp.matchLevel === 'OPEN'" size="small" effect="plain" round>不限专业</el-tag>
               <el-tag v-else-if="comp.matchLevel === 'RELATED'" type="info" size="small" effect="plain" round>同方向专业</el-tag>
+              <el-tag v-if="comp.registrationStatus === 'OPEN'" type="success" size="small" effect="plain" round>报名中</el-tag>
+              <el-tag v-else-if="comp.registrationStatus === 'CLOSED'" type="info" size="small" effect="plain" round>已截止</el-tag>
+              <el-tag v-else size="small" effect="plain" round>即将开放</el-tag>
               <span class="card-type">{{ comp.type }}</span>
             </div>
             <h3 class="card-title">{{ comp.name }}</h3>
@@ -81,8 +97,21 @@
             </div>
           </div>
           <div class="card-footer">
-            <el-button size="small" @click="openUrl(comp.officialUrl)" text type="primary">官网 <el-icon><Link /></el-icon></el-button>
-            <el-button size="small" type="primary" round @click="handleJoin(comp)">{{ joinedIds.includes(comp.id) ? '已加入 ✓' : '加入我的计划' }}</el-button>
+            <div class="footer-row">
+              <el-button class="reg-btn" size="small" type="primary"
+                :plain="comp.registrationStatus === 'CLOSED'"
+                @click="openUrl(comp.registrationUrl)">
+                {{ comp.registrationAction || '立即报名' }} <el-icon><Promotion /></el-icon>
+              </el-button>
+              <el-button size="small" text @click="openUrl(comp.officialUrl)">官网 <el-icon><Link /></el-icon></el-button>
+              <el-button size="small" round @click="handleJoin(comp)">{{ joinedIds.includes(comp.id) ? '已加入 ✓' : '加入计划' }}</el-button>
+            </div>
+            <div class="footer-hint">
+              <el-icon><InfoFilled /></el-icon>
+              {{ comp.registrationLabel || '查看报名安排' }}
+              <span v-if="comp.registrationStatus === 'CLOSED'">· 本届报名已结束，可先看官网了解下一届安排</span>
+              <span v-else-if="comp.registrationStatus === 'UPCOMING'">· 尚未开放，先看报名安排与备赛资料</span>
+            </div>
           </div>
         </div>
       </div>
@@ -121,6 +150,7 @@
               <el-tag v-if="rec.matchLevel === 'EXACT'" type="success" size="small" effect="plain">对口我的专业</el-tag>
               <el-tag v-else-if="rec.matchLevel === 'OPEN'" size="small" effect="plain">不限专业</el-tag>
               <el-tag v-if="rec.daysLeft > 0" type="success" size="small">剩余{{ rec.daysLeft }}天</el-tag>
+              <el-tag v-if="rec.registrationStatus === 'OPEN'" type="success" size="small" effect="plain">报名中</el-tag>
             </div>
 
             <div class="rec-reasons">
@@ -131,9 +161,12 @@
             </div>
 
             <div class="rec-action">
-              <el-button size="small" text type="primary" @click="openUrl(rec.officialUrl)">官网</el-button>
-              <el-button size="small" type="primary" round @click="handleJoin(rec)">加入计划</el-button>
-              <span class="rec-prep">建议准备 {{ rec.recommendDays }} 天</span>
+              <el-button size="small" type="primary" @click="openUrl(rec.registrationUrl)">
+                {{ rec.registrationAction || '立即报名' }} <el-icon><Promotion /></el-icon>
+              </el-button>
+              <el-button size="small" text @click="openUrl(rec.officialUrl)">官网</el-button>
+              <el-button size="small" round @click="handleJoin(rec)">加入计划</el-button>
+              <span class="rec-prep">{{ rec.registrationLabel || '查看报名安排' }} · 建议准备 {{ rec.recommendDays }} 天</span>
             </div>
           </div>
         </div>
@@ -148,13 +181,17 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { TrophyBase, Search, Calendar, Timer, List, MagicStick, Link, Loading, InfoFilled } from '@element-plus/icons-vue'
+import { useRoute } from 'vue-router'
+import { TrophyBase, Search, Calendar, Timer, List, MagicStick, Link, Loading, InfoFilled, Promotion } from '@element-plus/icons-vue'
 import { getCompetitionsApi } from '../api/competition'
 import { recommendCompetitionsApi } from '../api/recommend'
 import { getProfileApi } from '../api/profile'
 import { ElMessage } from 'element-plus'
 
+const route = useRoute()
 const activeTab = ref('all')
+// 首页「竞赛报名」快捷入口带 ?register=1 进来，直接只看正在报名的赛事
+const onlyOpen = ref(route.query.register === '1')
 const competitions = ref([])
 const recommendations = ref([])
 const loadingRec = ref(false)
@@ -172,6 +209,7 @@ const hasMajorInfo = computed(() => !!myMajorName.value)
 const isMyMatch = (c) => c.matchLevel === 'EXACT' || c.matchLevel === 'OPEN'
 const matchedCount = computed(() => competitions.value.filter(isMyMatch).length)
 const relatedCount = computed(() => competitions.value.filter(c => c.matchLevel === 'RELATED').length)
+const openCount = computed(() => competitions.value.filter(c => c.registrationStatus === 'OPEN').length)
 
 /** suitable_major 是 JSON 数组，['*'] 表示不限专业，这里不展示成「适合专业」 */
 function majorList(comp) {
@@ -186,6 +224,7 @@ function majorList(comp) {
 
 const filteredComps = computed(() => competitions.value.filter(c => {
   if (onlyMatch.value && hasMajorInfo.value && !isMyMatch(c)) return false
+  if (onlyOpen.value && c.registrationStatus !== 'OPEN') return false
   if (searchText.value && !c.name.includes(searchText.value)) return false
   if (filterType.value && c.type !== filterType.value) return false
   if (filterDiff.value && c.difficulty !== filterDiff.value) return false
@@ -233,7 +272,7 @@ async function fetchRecommendations() {
   try {
     const res = await recommendCompetitionsApi()
     recommendations.value = res.data
-  } catch (e) { ElMessage.error('推荐失败，请先完成档案初始化') }
+  } catch (e) { if (!/档案|初始化/.test(e?.message || '')) ElMessage.error('推荐失败，请稍后重试') }
   finally { loadingRec.value = false }
 }
 async function switchToAI() {
@@ -330,7 +369,24 @@ async function loadMajorContext() {
 .countdown-text { font-size: 13px; margin-bottom: 4px; color: var(--text-secondary); }
 .countdown-text strong { color: var(--primary); font-size: 16px; }
 .countdown-text.expired { color: #EF5350; }
-.card-footer { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; border-top: 1px solid var(--border); background: rgba(255,255,255,.02); }
+.card-footer { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 14px 22px; border-top: 1px solid var(--border); background: rgba(255,255,255,.02); }
+.footer-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.footer-row .el-button { margin-left: 0; }
+.reg-btn { flex-shrink: 0; }
+.footer-hint { display: flex; align-items: flex-start; gap: 5px; margin-top: 8px; font-size: 11.5px; color: var(--text-muted); line-height: 1.5; word-break: break-word; min-width: 0; }
+.footer-hint .el-icon { flex-shrink: 0; margin-top: 2px; }
+
+/* 报名直达横幅 */
+.reg-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding: 14px 18px; margin-bottom: 18px; border-radius: var(--radius-lg);
+  border: 1px solid rgba(79,209,197,.28); background: rgba(79,209,197,.06);
+}
+.reg-bar-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; font-size: 13.5px; color: var(--text-secondary); }
+.reg-bar-main strong { color: var(--primary); font-size: 17px; font-weight: 800; }
+.reg-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #4CD7A0; box-shadow: 0 0 0 4px rgba(76,215,160,.15); flex-shrink: 0; }
+.reg-bar-sub { color: var(--text-muted); font-size: 12.5px; }
+.reg-bar-switch { display: flex; align-items: center; gap: 8px; font-size: 13px; white-space: nowrap; }
 
 /* AI推荐 */
 .rec-loading { text-align: center; padding: 80px 0; }
@@ -366,6 +422,10 @@ async function loadMajorContext() {
 .reason-title { font-weight: 600; font-size: 13px; margin-bottom: 10px; }
 .reason-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
 .reason-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
-.rec-action { display: flex; align-items: center; gap: 12px; }
-.rec-prep { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+.rec-action { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rec-prep { font-size: 12px; color: var(--text-muted); margin-left: auto; line-height: 1.5; word-break: break-word; }
+@media (max-width: 560px) {
+  .reg-bar { flex-direction: column; align-items: flex-start; }
+  .footer-row .el-button { flex-shrink: 0; }
+}
 </style>

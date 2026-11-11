@@ -1,0 +1,1 @@
+import{r}from"./request-DWwCU3lW.js";function i(t="GENERAL"){return r.get("/ai/chat-history",{params:{type:t}})}function e(t="GENERAL"){return r.delete("/ai/chat-history",{params:{type:t}})}function s(){return r.get("/ai/status")}export{i as a,e as c,s as g};

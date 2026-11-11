@@ -82,11 +82,11 @@ async function handleLoopAction(){
   if(loopAction.value.mode==='go'){router.push(loopAction.value.to);return}
   loopBusy.value=true
   try{await generatePlanApi();hasPlan.value=true;ElMessage.success('四年规划已生成')}
-  catch(e){ElMessage.error('生成失败，请稍后再试')}
+  catch(e){if(!/档案|初始化/.test(e?.message||''))ElMessage.error('生成失败，请稍后再试')}
   finally{loopBusy.value=false}
 }
 const stats=computed(()=>[{icon:Medal,value:overall.value+'分',label:'综合能力',bg:'rgba(139,195,74,.12)',color:'#8BC34A'},{icon:Reading,value:'12门',label:'推荐课程',bg:'rgba(102,187,106,.08)',color:'#66BB6A'},{icon:TrophyBase,value:'6个',label:'推荐竞赛',bg:'rgba(168,85,247,.12)',color:'#A855F7'},{icon:Timer,value:loopPercent.value+'%',label:'闭环完成',bg:'rgba(239,83,80,.08)',color:'#EF5350'}])
-const quicks=[{icon:'🎯',label:'四年规划',to:'/home/plan'},{icon:'📖',label:'知识地图',to:'/home/courses'},{icon:'🏆',label:'竞赛推荐',to:'/home/competitions'},{icon:'🤖',label:'AI助手',to:'/home/assistant'},{icon:'📊',label:'学习打卡',to:'/home/growth'},{icon:'📄',label:'AI简历',to:'/home/resume'}]
+const quicks=[{icon:'🎯',label:'四年规划',to:'/home/plan'},{icon:'📖',label:'知识地图',to:'/home/courses'},{icon:'🏆',label:'竞赛报名',to:'/home/competitions?register=1'},{icon:'🤖',label:'AI助手',to:'/home/assistant'},{icon:'📊',label:'学习打卡',to:'/home/growth'},{icon:'📄',label:'AI简历',to:'/home/resume'}]
 onMounted(async()=>{try{profile.value=(await getProfileApi()).data||null}catch(e){}finally{profileLoaded.value=true}try{portrait.value=(await getPortraitApi()).data||null}catch(e){}try{hasPlan.value=!!(await getPlanApi()).data}catch(e){}try{const p=(await getStudyPlanApi()).data;hasRecords.value=Array.isArray(p)&&p.length>0}catch(e){}try{aiConfigured.value=(await getAiStatusApi()).data?.configured===true}catch(e){}await nextTick();renderRadar();window.addEventListener('resize',handleResize)})
 onUnmounted(()=>{window.removeEventListener('resize',handleResize);if(chartInstance){chartInstance.dispose();chartInstance=null}})
 watch(portrait,async()=>{await nextTick();renderRadar()})

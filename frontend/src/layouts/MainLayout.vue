@@ -76,6 +76,13 @@
     </header>
 
     <main class="main-content">
+      <!-- 档案未建立时，所有模块顶部都给一条明确的下一步引导，而不是让人面对空页面 -->
+      <div v-if="showProfileTip" class="profile-tip">
+        <span class="pt-icon">✦</span>
+        <span class="pt-text">还没建立 AI 成长档案，规划、简历和竞赛推荐暂时无法按你的专业生成。</span>
+        <el-button size="small" type="primary" round @click="router.push('/init')">去完善档案</el-button>
+        <button class="pt-close" title="本次不再提示" @click="dismissProfileTip">×</button>
+      </div>
       <!-- 模块切换时的一道信号扫光，把上一页和下一页「连」起来 -->
       <div class="route-sweep" :key="route.path"></div>
       <router-view v-slot="{ Component }">
@@ -86,11 +93,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { Setting, User, Edit, SwitchButton, Bell, DataAnalysis } from '@element-plus/icons-vue'
 import { getNotificationsApi, getUnreadCountApi, markReadApi, markAllReadApi } from '../api/notification'
+import { getProfileApi } from '../api/profile'
 import AppBackground from '../components/AppBackground.vue'
 
 const route = useRoute()
@@ -99,6 +107,8 @@ const userStore = useUserStore()
 
 const notifications = ref([])
 const unread = ref(0)
+const showProfileTip = ref(false)
+const PROFILE_TIP_KEY = 'zhitu_profile_tip_dismissed'
 let pollTimer = null
 
 const isAdmin = computed(() => (userStore.userInfo?.role || localStorage.getItem('role')) === 'ADMIN')
@@ -106,9 +116,30 @@ const isAdmin = computed(() => (userStore.userInfo?.role || localStorage.getItem
 onMounted(async () => {
   if (!userStore.userInfo) await userStore.fetchUserInfo()
   await loadUnread()
+  await checkProfileReady()
   // 通知不是实时性很强的功能，60 秒轮询一次即可
   pollTimer = setInterval(loadUnread, 60000)
 })
+
+/** 初始化完成后从 /init 回来，或切换到别的模块时，重新确认提示条是否该收起 */
+watch(() => route.path, () => {
+  if (!sessionStorage.getItem(PROFILE_TIP_KEY)) checkProfileReady()
+})
+
+async function checkProfileReady() {
+  if (sessionStorage.getItem(PROFILE_TIP_KEY)) return
+  try {
+    const p = (await getProfileApi()).data
+    showProfileTip.value = !p || !p.majorId
+  } catch (e) {
+    showProfileTip.value = false
+  }
+}
+
+function dismissProfileTip() {
+  showProfileTip.value = false
+  sessionStorage.setItem(PROFILE_TIP_KEY, '1')
+}
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
@@ -164,6 +195,23 @@ function handleLogout() {
 
 <style scoped>
 .main-layout{display:flex;flex-direction:column;min-height:100vh;position:relative}
+
+/* 未初始化档案的全局引导条：细、可关闭、不遮挡内容 */
+.profile-tip{
+  display:flex;align-items:center;gap:10px;max-width:1200px;width:calc(100% - 48px);
+  margin:14px auto 0;padding:9px 14px;border-radius:10px;font-size:12.5px;
+  color:#F5C97A;background:rgba(245,165,36,.08);border:1px solid rgba(245,165,36,.24);
+}
+.profile-tip .pt-icon{color:#F5C97A;flex-shrink:0;font-size:13px}
+.profile-tip .pt-text{flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.5}
+.pt-close{
+  margin-left:2px;background:transparent;border:0;color:inherit;opacity:.55;
+  cursor:pointer;font-size:17px;line-height:1;padding:2px 4px;flex-shrink:0;
+}
+.pt-close:hover{opacity:1}
+@media (max-width:820px){
+  .profile-tip{width:calc(100% - 24px);flex-wrap:wrap}
+}
 
 /* 信号扫光：每次切模块从左侧扫过一条绿线 */
 .route-sweep{position:absolute;top:0;left:0;right:0;height:1px;pointer-events:none;overflow:hidden;z-index:2}

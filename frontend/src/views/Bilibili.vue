@@ -9,7 +9,11 @@
     <div v-if="recommendations.length" class="section">
       <div class="section-head">
         <h2><span class="spark">✦</span> 按你的专业推荐</h2>
-        <span class="section-sub">专业对口 > 方向相关 > 通用技能，每条都有推荐理由</span>
+        <span class="section-sub" v-if="majorName">
+          「{{ majorName }}」在资源库中有 {{ exactTotal }} 门直接对口课程 · 本页优先展示 {{ exactPicked }} 门专业对口课，
+          相近专业最多 3 门、通用技能最多 2 门，不对口的一律不推
+        </span>
+        <span class="section-sub" v-else>先在个人档案里选择专业，即可获得按专业精确匹配的课程推荐</span>
       </div>
       <div class="card-grid">
         <div class="bili-card rec" v-for="r in recommendations" :key="'rec-' + r.id">
@@ -20,7 +24,8 @@
           <h4 class="card-title">{{ r.title }}</h4>
           <p class="card-desc">{{ r.description }}</p>
           <div class="match-line">
-            <span class="match-score" :class="scoreClass(r.score)">{{ r.score }}分</span>
+            <span class="match-label" :class="scoreClass(r.score)">{{ r.matchLabel || labelOf(r.score) }}</span>
+            <span class="match-score">{{ r.score }}分</span>
             <span class="match-reason">{{ r.matchReason }}</span>
           </div>
           <div class="card-footer">
@@ -35,7 +40,7 @@
     <div class="section">
       <div class="section-head">
         <h2>全部公开课资源库</h2>
-        <span class="section-sub">共 {{ totalCount }} 门 · 链接直达 B 站搜索，课程名+UP主精准命中</span>
+        <span class="section-sub">共 {{ totalCount }} 门 · 覆盖全部 175 个专业 · 链接直达 B 站搜索，课程名+UP主精准命中</span>
       </div>
 
       <div class="filter-bar">
@@ -96,6 +101,8 @@ const resources = ref([])
 const categories = ref({})
 const totalCount = ref(0)
 const majorName = ref('')
+const exactTotal = ref(0)
+const exactPicked = ref(0)
 const activeCategory = ref('')
 const searchKeyword = ref('')
 
@@ -113,6 +120,11 @@ function scoreClass(s) {
   if (s >= 100) return 'exact'
   if (s >= 80) return 'related'
   return 'open'
+}
+function labelOf(s) {
+  if (s >= 100) return '专业对口'
+  if (s >= 80) return '相近专业'
+  return '通用技能'
 }
 
 function filterCategory(cat) {
@@ -143,6 +155,8 @@ onMounted(async () => {
     const rec = await getBilibiliRecommendApi()
     recommendations.value = rec.data?.recommendations || []
     majorName.value = rec.data?.majorName || ''
+    exactTotal.value = rec.data?.exactTotal || 0
+    exactPicked.value = rec.data?.exactPicked || 0
   } catch (e) { /* 未初始化档案时推荐区不显示 */ }
 
   loadResources()
@@ -177,10 +191,11 @@ onMounted(async () => {
 .card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; flex: 1; word-break: break-word; }
 
 .match-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.match-score { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; flex-shrink: 0; white-space: nowrap; }
-.match-score.exact { color: #4CD7A0; background: rgba(0,210,160,.12); }
-.match-score.related { color: #FFB56B; background: rgba(255,181,107,.12); }
-.match-score.open { color: var(--text-muted); background: rgba(255,255,255,.06); }
+.match-label { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; flex-shrink: 0; white-space: nowrap; }
+.match-label.exact { color: #4CD7A0; background: rgba(0,210,160,.12); }
+.match-label.related { color: #FFB56B; background: rgba(255,181,107,.12); }
+.match-label.open { color: var(--text-muted); background: rgba(255,255,255,.06); }
+.match-score { font-size: 11px; color: var(--text-muted); flex-shrink: 0; white-space: nowrap; }
 .match-reason { font-size: 11.5px; color: var(--text-secondary); word-break: break-word; min-width: 0; }
 
 .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; gap: 10px; }

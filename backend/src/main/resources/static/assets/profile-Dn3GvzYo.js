@@ -1,1 +1,0 @@
-import{r as t}from"./request-Dm961Y1F.js";const e=12e4;function o(r){return t.post("/profile",r)}function n(){return t.get("/profile")}function a(){return t.post("/ai/generate-portrait",null,{timeout:e})}function p(){return t.get("/ai/portrait")}export{p as a,a as b,n as g,o as s};

@@ -62,6 +62,14 @@ export function renderMarkdown(text) {
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>')
 
+  // 6.5 URL 自动链接化：工具返回的官网 / 报名入口如果只能当纯文本看，
+  //     学生还得手动复制，就不是「直达」了。这里统一转成新窗口可点的链接。
+  //     文本已经过 HTML 转义，且此前没有生成过任何 href 属性，不会重复替换。
+  html = html.replace(/(https?:\/\/[^\s<>"'）)，,、；;]+)/g, raw => {
+    const url = raw.replace(/[.,;:!?]+$/, '')
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${raw.slice(url.length)}`
+  })
+
   // 7. 段落：以空行分段，块级元素不再包裹 p
   html = html
     .split(/\n{2,}/)

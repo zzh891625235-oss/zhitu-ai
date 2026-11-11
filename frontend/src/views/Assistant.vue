@@ -384,6 +384,8 @@ onMounted(async () => {
 .msg-text :deep(li) { margin: 3px 0; list-style: disc; }
 .msg-text :deep(li.md-ordered) { list-style: decimal; }
 .msg-text :deep(strong) { color: #fff; font-weight: 600; }
+.msg-text :deep(a) { color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary); word-break: break-all; }
+.msg-text :deep(a:hover) { color: #7FF3E4; }
 .msg-text :deep(code) {
   background: rgba(139,195,74,.12); color: #A5D66A; padding: 1px 5px;
   border-radius: 4px; font-size: 12.5px; font-family: Consolas, Monaco, monospace;

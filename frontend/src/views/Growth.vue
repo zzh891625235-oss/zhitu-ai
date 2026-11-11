@@ -195,7 +195,7 @@ async function reloadArchive() {
 async function handleGenerate() {
   generating.value = true
   try { plan.value = (await generateStudyPlanApi(7)).data; ElMessage.success('计划已生成') }
-  catch (e) { ElMessage.error('生成失败') }
+  catch (e) { if (!/档案|初始化/.test(e?.message || '')) ElMessage.error('生成失败') }
   finally { generating.value = false }
 }
 
