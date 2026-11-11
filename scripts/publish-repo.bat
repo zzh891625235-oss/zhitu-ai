@@ -14,7 +14,7 @@ echo      Do NOT initialize it with README / license / .gitignore.
 echo   2. Copy its HTTPS URL, for example
 echo      https://gitee.com/yourname/zhitu-ai.git
 echo   3. This folder MUST contain the .git directory.
-echo      Use "ZhiTuAI-GitRepo.zip", not the submission zip.
+echo      Use the Git repository zip (the one that contains .git),
 echo.
 
 where git >nul 2>nul
@@ -57,7 +57,7 @@ exit /b 1
 
 :norepo
 echo [ERROR] .git directory not found in this folder.
-echo Please fully extract "ZhiTuAI-GitRepo.zip" and run this script
+echo Please fully extract the Git repository zip (with .git)
 echo from the scripts folder inside it.
 echo The submission zip does NOT contain .git.
 pause
