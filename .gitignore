@@ -59,3 +59,7 @@ docs/report.html
 frontend/.vite/
 backend/data/
 data/
+
+# === 前端构建临时缓存（不要提交）===
+.build-tmp/
+frontend/.vite/
