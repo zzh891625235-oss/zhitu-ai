@@ -357,11 +357,13 @@ cd frontend && npm test      # Node test runner：Markdown 渲染等纯函数
 | 环境配置（环境变量模板 + 依赖清单） | [.env.example](.env.example)、[docs/环境配置说明.md](docs/环境配置说明.md)、[docs/DEPLOY.md](docs/DEPLOY.md) |
 | 敏感信息不得出现在公开仓库 | `AI_API_KEY` 等一律 `${VAR:}` 注入；`.env`、`application-prod.yml`、`*.pem`、`data/` 均被 `.gitignore` 排除 |
 
-**公开仓库地址（提交前替换为真实 URL）**：
+**公开仓库地址（Public）**：
 
 ```
-GitHub: https://github.com/<你的用户名>/zhitu-ai
-Gitee : https://gitee.com/<你的用户名>/zhitu-ai
+GitHub: https://github.com/zzh891625235-oss/zhitu-ai   <- 主仓库（已发布，保留完整 Git 提交历史）
+Gitee : https://gitee.com/zzh00123/zhitu-ai   <- 备用（如启用）
 ```
+
+> 仓库 commits 页可逐次查看自 2026-09-26 起的 55+ 次真实提交；表单第 5 项仍须填网盘链接。
 
 > 表单第 5 项仍要求「网盘链接」，因此网盘 zip 与 Public 仓库两者都要交，详见 [docs/代码仓库与提交说明.md](docs/代码仓库与提交说明.md)。
