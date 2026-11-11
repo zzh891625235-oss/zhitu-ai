@@ -356,3 +356,11 @@ cd frontend && npm test      # Node test runner：Markdown 渲染等纯函数
 3. 也可以完全绕开 bat：在便携版目录打开命令行执行
    `java -jar zhitu-ai.jar --spring.profiles.active=demo --server.port=8080`
 4. 启动前请确认整个压缩包已完整解压，`zhitu-ai.jar` 与 bat 在同一文件夹；脚本现在会在缺少 jar 时给出明确提示，不会闪退。
+
+---
+
+## 附：代码仓库（省赛赛项章程要求）
+
+省赛作品提交材料包含**代码仓库**：须托管于 GitHub / Gitee 并设为 Public，保留完整 Git 提交历史，README 需含项目介绍、技术架构、安装运行指南与团队信息，并提供环境变量模板与依赖清单。
+
+本项目已备齐：根目录 `README.md`、`.env.example`、`docs/环境配置说明.md`、`docs/代码仓库与提交说明.md`、`docs/GIT_HISTORY.txt`（50 次提交）、`scripts/publish-repo.bat`。发布 Public 仓库请用独立的 `智途AI-Git仓库-可直接推送.zip`（含 `.git`），提交版 zip 不含 `.git`。表单第 5 项仍填网盘链接，两者都要交。
