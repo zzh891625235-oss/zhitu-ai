@@ -353,7 +353,7 @@ cd frontend && npm test      # Node test runner：Markdown 渲染等纯函数
 | 托管平台 GitHub / Gitee（Public） | 见 [docs/代码仓库与提交说明.md](docs/代码仓库与提交说明.md)；`scripts/publish-repo.bat` 可一键推送 |
 | 代码结构清晰、有效注释 | `backend` / `frontend` / `mcp-server` / `database` / `docs` / `scripts` 分层，AI 层与业务层解耦 |
 | README（项目介绍 / 技术架构 / 安装运行 / 团队信息） | 本文件第一、三、五、十章 |
-| 保留完整 Git 提交历史 | 46+ 次真实提交，自 2026-09-26 起；纯文本备份见 `docs/GIT_HISTORY.txt` |
+| 保留完整 Git 提交历史 | 50+ 次真实提交，自 2026-09-26 起；纯文本备份见 `docs/GIT_HISTORY.txt` |
 | 环境配置（环境变量模板 + 依赖清单） | [.env.example](.env.example)、[docs/环境配置说明.md](docs/环境配置说明.md)、[docs/DEPLOY.md](docs/DEPLOY.md) |
 | 敏感信息不得出现在公开仓库 | `AI_API_KEY` 等一律 `${VAR:}` 注入；`.env`、`application-prod.yml`、`*.pem`、`data/` 均被 `.gitignore` 排除 |
 
