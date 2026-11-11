@@ -350,10 +350,10 @@ cd frontend && npm test      # Node test runner：Markdown 渲染等纯函数
 
 | 官方要求项 | 本仓库的落实 |
 | --- | --- |
-| 托管平台 GitHub / Gitee（Public） | 见 [docs/代码仓库与提交说明.md](docs/代码仓库与提交说明.md)；`scripts/publish-repo.bat` 可一键推送 |
+| 托管平台 GitHub / Gitee（Public） | ✅ 已发布：https://github.com/zzh891625235-oss/zhitu-ai （Public，匿名可访问）；`scripts/publish-repo.bat` 可用于迁移或备用仓库 |
 | 代码结构清晰、有效注释 | `backend` / `frontend` / `mcp-server` / `database` / `docs` / `scripts` 分层，AI 层与业务层解耦 |
 | README（项目介绍 / 技术架构 / 安装运行 / 团队信息） | 本文件第一、三、五、十章 |
-| 保留完整 Git 提交历史 | 50+ 次真实提交，自 2026-09-26 起；纯文本备份见 `docs/GIT_HISTORY.txt` |
+| 保留完整 Git 提交历史 | 57 次真实提交，自 2026-09-26 起；纯文本备份见 `docs/GIT_HISTORY.txt` |
 | 环境配置（环境变量模板 + 依赖清单） | [.env.example](.env.example)、[docs/环境配置说明.md](docs/环境配置说明.md)、[docs/DEPLOY.md](docs/DEPLOY.md) |
 | 敏感信息不得出现在公开仓库 | `AI_API_KEY` 等一律 `${VAR:}` 注入；`.env`、`application-prod.yml`、`*.pem`、`data/` 均被 `.gitignore` 排除 |
 
@@ -364,6 +364,6 @@ GitHub: https://github.com/zzh891625235-oss/zhitu-ai   <- 主仓库（已发布�
 Gitee : https://gitee.com/zzh00123/zhitu-ai   <- 备用（如启用）
 ```
 
-> 仓库 commits 页可逐次查看自 2026-09-26 起的 55+ 次真实提交；表单第 5 项仍须填网盘链接。
+> 仓库 commits 页可逐次查看自 2026-09-26 起的 57 次真实提交；**2026-11-12 已通过匿名接口验证**：Public、57 次提交、336 个文件、无 `.env` / `data/` / 真实密钥。表单第 5 项仍须填网盘链接。
 
 > 表单第 5 项仍要求「网盘链接」，因此网盘 zip 与 Public 仓库两者都要交，详见 [docs/代码仓库与提交说明.md](docs/代码仓库与提交说明.md)。
